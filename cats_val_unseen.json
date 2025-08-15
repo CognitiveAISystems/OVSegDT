@@ -1,0 +1,29 @@
+{
+    "cats_text": [
+        "bedframe", "blinds", "boiler", "book", "bowl of fruit",
+        "calendar", "christmas tree", "clothes hanger rod", "coffee machine",
+        "decorative plant", "dishwasher", "dresser", "exercise bike",
+        "flowerpot", "food", "footrest", "footstool", "freezer",
+        "glass", "guitar", "handrail", "hanger", "hanging clothes",
+        "island", "microwave", "mirror", "nightstand", "ottoman",
+        "parapet", "photo", "photo mount", "piano", "picture",
+        "pillow", "plant", "printer", "radiator", "refrigerator", "rug",
+        "shower dial", "shower glass", "speaker", "stair", "statue",
+        "vase", "window glass"
+    ],
+    "conf_per_cat": {
+        "bedframe": 0.3, "blinds": 0.01, "boiler": 0.4, "book": 0.1,
+        "bowl of fruit": 0.1, "calendar": 0.2, "carpet": 0.3,
+        "christmas tree": 0.2, "clothes hanger rod": 0.2,
+        "coffee machine": 0.2, "decorative plant": 0.1, "dishwasher": 0.5,
+        "dresser": 0.4, "exercise bike": 0.4, "flower vase": 0.1, "flowerpot": 0.01,
+        "food": 0.1, "footrest": 0.1, "footstool": 0.1, "freezer": 0.1, "glass": 0.1,
+        "guitar": 0.1, "handrail": 0.1, "hanger": 0.3, "hanging clothes": 0.1, "island": 0.2,
+        "microwave": 0.4, "mirror": 0.4, "nightstand": 0.3, "ottoman": 0.3,
+        "parapet": 0.0, "photo": 0.1, "photo mount": 0.2, "piano": 0.3,
+        "picture": 0.3, "pillow": 0.3, "plant": 0.1, "printer": 0.01,
+        "radiator": 0.1, "refrigerator": 0.4, "rug": 0.4, "shower dial": 0.2,
+        "shower glass": 0.0, "speaker": 0.0, "stair": 0.1,
+        "staircase handrail": 0.3, "statue": 0.1, "vase": 0.1, "window glass": 0.3
+    }
+}
