@@ -12,11 +12,7 @@ variables.sh
 .vscode
 
 # data
-<<<<<<< HEAD
-data/
-=======
 data
->>>>>>> cdc81e1 (Added demo config)
 
 # logs
 tb/
