@@ -60,7 +60,11 @@ habitat:
       cell_height: 0.05
     habitat_sim_v0:
       gpu_gpu: False
+<<<<<<< HEAD
       gpu_device_id: 1
+=======
+      gpu_device_id: 0
+>>>>>>> cdc81e1 (Added demo config)
       allow_sliding: False
 
 habitat_baselines:
@@ -69,7 +73,11 @@ habitat_baselines:
   video_dir: "video_dir"
   test_episode_count: -1
   eval_ckpt_path_dir: "data/dagger_ppo_ema_stable_no_segm_loss_2gpus_rerun"
+<<<<<<< HEAD
   num_environments: 40
+=======
+  num_environments: 4
+>>>>>>> cdc81e1 (Added demo config)
   checkpoint_folder: "data/dagger_ppo_ema_stable_no_segm_loss_2gpus_rerun"
   trainer_name: "ver_ovon_transformer_custom"
   num_updates: -1

@@ -106,6 +106,7 @@ class InferenceWorkerProcess(ProcessBase):
             self.segm_model = self.actor_critic.net.segm_model[0]
             self.cache = self.actor_critic.net.cache
             self.cats_text = self.actor_critic.net.cats_text
+            self.conf_per_cat = self.actor_critic.net.conf_per_cat
             self.cache_values = self.actor_critic.net.cache_values
 
         self.transfer_buffers = self._torch_transfer_buffers.numpy()
@@ -346,7 +347,7 @@ class InferenceWorkerProcess(ProcessBase):
                         imgsz=224,
                         device="cuda",
                         half=True,
-                        conf=0.2
+                        conf=0.01
                     )
 
                     # 2. Stack relevant data
@@ -369,20 +370,18 @@ class InferenceWorkerProcess(ProcessBase):
                         target_class = min_indices[b_idx]
 
                         masks = r.masks.data  # [N, H, W]
-                        classes = r.boxes.cls.long()  # [N]
-
-                        selected = (classes == target_class).nonzero(as_tuple=True)[0]  # [M]
+                        classes = r.boxes.cls.long()
+                        confs = r.boxes.conf
+                        if self.cats_text[target_class] in self.conf_per_cat:
+                            selected = ((classes == target_class) & (confs > self.conf_per_cat[self.cats_text[target_class]])).nonzero(as_tuple=True)[0]
+                        else:
+                            print("Not unseen:", self.cats_text[target_class])
+                            selected = (classes == target_class).nonzero(as_tuple=True)[0]
+                        
                         if selected.numel() > 0:
                             selected_masks = masks[selected]  # [M, H, W]
                             merged_mask = selected_masks.any(dim=0).squeeze()  # [H, W]
                             segmentation_mask[b_idx, :, :, 0] = merged_mask.detach()
-                    #end.record()
-
-                    # Waits for everything to finish running
-                    #torch.cuda.synchronize()
-
-                    #print("inference time", start.elapsed_time(end), obs['rgb'].shape)
-
                     obs["segm_model"] = segmentation_mask
                 else:
                     obs["segm_model"] = obs["semantic"]
@@ -400,15 +399,6 @@ class InferenceWorkerProcess(ProcessBase):
                 prev_segm_masks,
                 to_batch["masks"],
             )
-
-            # # if self.segm_model is not None:
-            #     #ious = compute_iou(obs["semantic"], obs["segm_model"]).unsqueeze(1)
-            #     ious = compute_reward(confs, obs["segm_model"]).unsqueeze(1)
-            #     #print(ious.shape, to_batch["rewards"].shape, prev_ious.shape)
-            #     to_batch["rewards"] += (ious-prev_ious)
-
-            #     if self.update % 10 == 0:
-            #         print("Reward:", torch.sum(ious-prev_ious))
 
             if not final_batch:
                 self.rollouts.next_hidden_states.index_copy_(

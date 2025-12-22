@@ -66,9 +66,9 @@ The OVON navigation episodes can be found here: https://huggingface.co/datasets/
 The tar.gz file should be decompressed in `data/datasets/ovon/`, such that the `hm3d` directory is located at `data/datasets/ovon/hm3d/`. Delete all "._*" files that appear after decompressing. "val_unseen_easy.json.gz" should be renamed to "val_seen_synonyms.json.gz"
 
 ## :weight_lifting: Downloading pre-trained weights
-We provide pre-trained checkpoint on the HuggingFace Hub:
+We provide pre-trained checkpoint on the Anonymous Google Drive:
 
-- `ckpt.2.pth`: https://huggingface.co/wingrune/OVSegDT
+- `ckpt.5.pth`: https://drive.google.com/file/d/1Y26g4xNVFW5UMKmg0IyS1JS-BgBLcoyC/view?usp=sharing
 
 ## :arrow_forward: Evaluation within Habitat
 

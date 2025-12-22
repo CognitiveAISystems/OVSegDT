@@ -307,6 +307,24 @@ class Env:
         except:
             observations['multi_semantic_sensor'] = np.zeros_like(observations['semantic'])
 
+        self.prev_sum_sem = 0.
+        self.prev_goaldist = 100.0
+        self.current_goaldist = 100.0
+        self.current_sum_sem = observations['semantic'].sum().item()/1000.
+        
+        self.info = self.get_metrics() 
+        self.distances_to_obj = self.info['distance_to_goal']
+        self.current_goaldist = min(self.current_goaldist,self.distances_to_obj)
+        self.current_sum_sem = max(self.current_sum_sem, observations['semantic'].sum().item()/1000.)
+
+        # semantic_reward = -.03
+        semantic_reward = 0.0
+        semantic_reward += np.clip(self.prev_goaldist-self.current_goaldist,-1,1)   
+        semantic_reward += np.clip(self.current_sum_sem-self.prev_sum_sem,-1,1)
+        semantic_reward = semantic_reward*0.01
+        self.prev_sum_sem = self.current_sum_sem
+        self.prev_goaldist = self.current_goaldist
+
         return observations
 
     def _update_step_stats(self) -> None:
@@ -386,6 +404,20 @@ class Env:
             observations['multi_semantic_sensor'] = all_cats.astype(np.int32)
         except:
             observations['multi_semantic_sensor'] = np.zeros_like(observations['semantic'])
+        
+        self.info = self.get_metrics() 
+        self.distances_to_obj = self.info['distance_to_goal']
+        self.current_goaldist = min(self.current_goaldist,self.distances_to_obj)
+        self.current_sum_sem = max(self.current_sum_sem, observations['semantic'].sum().item()/1000.)
+
+        # semantic_reward = -.03
+        semantic_reward = 0.0
+        semantic_reward += np.clip(self.prev_goaldist-self.current_goaldist,-1,1)   
+        semantic_reward += np.clip(self.current_sum_sem-self.prev_sum_sem,-1,1)
+        semantic_reward = semantic_reward*0.5
+        self.prev_sum_sem = self.current_sum_sem
+        self.prev_goaldist = self.current_goaldist
+        observations['semantic_reward'] = semantic_reward
 
         return observations
 
@@ -537,9 +569,12 @@ class RLEnv(gym.Env):
 
         observations = self._env.step(*args, **kwargs)
         reward = self.get_reward(observations)
+        reward += observations['semantic_reward']
         done = self.get_done(observations)
         info = self.get_info(observations)
         info["object_goal"] = self._env.object_goal
+        info["semantic_reward"] = observations['semantic_reward']
+        del observations['semantic_reward']
 
         return observations, reward, done, info
 

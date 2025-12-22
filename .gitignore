@@ -12,7 +12,11 @@ variables.sh
 .vscode
 
 # data
+<<<<<<< HEAD
 data/
+=======
+data
+>>>>>>> cdc81e1 (Added demo config)
 
 # logs
 tb/
@@ -47,6 +51,7 @@ ovon/check_checkpoint_config.py
 output*/
 frontier_exploration/
 detectron2/
-data/
+data
 video_dir_*/
 siglip/
+.DS_Store
