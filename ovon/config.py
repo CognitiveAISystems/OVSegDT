@@ -19,6 +19,9 @@ from hydra.core.config_search_path import ConfigSearchPath
 from hydra.core.config_store import ConfigStore
 from hydra.plugins.search_path_plugin import SearchPathPlugin
 
+import ovon.custom_actions
+
+
 cs = ConfigStore.instance()
 
 

@@ -104,10 +104,12 @@ class InferenceWorkerProcess(ProcessBase):
             self.update = 0
 
             self.segm_model = self.actor_critic.net.segm_model[0]
-            self.cache = self.actor_critic.net.cache
-            self.cats_text = self.actor_critic.net.cats_text
-            self.conf_per_cat = self.actor_critic.net.conf_per_cat
-            self.cache_values = self.actor_critic.net.cache_values
+
+            if self.segm_model is not None:
+                self.cache = self.actor_critic.net.cache
+                self.cats_text = self.actor_critic.net.cats_text
+                self.conf_per_cat = self.actor_critic.net.conf_per_cat
+                self.cache_values = self.actor_critic.net.cache_values
 
         self.transfer_buffers = self._torch_transfer_buffers.numpy()
         self.incoming_transfer_buffers = self.transfer_buffers.slice_keys(

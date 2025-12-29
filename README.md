@@ -1,4 +1,23 @@
 
+apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+    bash-completion \
+    build-essential \
+    ca-certificates \
+    cmake \
+    curl \
+    git \
+    htop \
+    libegl1 \
+    libxext6 \
+    libjpeg-dev \
+    libpng-dev  \
+    rsync \
+    tmux \
+    unzip \
+    vim \
+    wget \
+    xvfb \
+    && rm -rf /var/lib/apt/lists/*
 
 ## :hammer_and_wrench: Installation
 
@@ -102,3 +121,18 @@ python -m ovon.run --run-type train \
 --debug-datapath \
 --exp-config config/experiments/transformer_dagger_ppo_no_segm_loss.yaml
 ```
+
+
+python -m ovon.run --run-type train \
+--debug-datapath \
+--exp-config config/experiments/transformer_dagger_ppo_segm_loss_demo_zero.yaml
+
+
+cp /root_home/OVSegDT/modeling_llama.py /opt/conda/envs/habitat/lib/python3.10/site-packages/transformers/models/llama/modeling_llama.py
+
+
+source /opt/conda/etc/profile.d/conda.sh && conda activate habitat
+pip install numpy==1.24.4
+pip install gym==0.24.1
+pip install timm==1.0.15
+pip uninstall -y numpy pandas && pip install "numpy<2.0" "pandas<2.0"

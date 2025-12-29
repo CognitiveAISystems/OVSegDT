@@ -581,24 +581,13 @@ class OVONNet(Net):
             self.object_goal = None
             self.cache_values = torch.stack([torch.from_numpy(self.cache[k]) for k in self.cats_text]).to("cuda")
 
-        elif self.segmentation_source == "yolo_val_seen":
-            
-            with open("cats_val_seen.json", "r") as f:
-                data = json.load(f)
-                self.cats_text = data["cats_text"]
-                self.conf_per_cat = data["conf_per_cat"]
-
-            self.segm_model = [YOLOE("yoloe-v8l-seg.pt").to("cuda")]
-            self.segm_model[0].set_classes(self.cats_text, self.segm_model[0].get_text_pe(list(self.cats_text)))
-            self.object_goal = None
-            self.cache_values = torch.stack([torch.from_numpy(self.cache[k]) for k in self.cats_text]).to("cuda")
-
         elif self.segmentation_source == "yolo_val_seen_synonyms":
             
             with open("cats_val_seen_synonyms.json", "r") as f:
                 data = json.load(f)
                 self.cats_text = data["cats_text"]
                 self.conf_per_cat = data["conf_per_cat"]
+
 
             self.segm_model = [YOLOE("yoloe-v8l-seg.pt").to("cuda")]
             self.segm_model[0].set_classes(self.cats_text, self.segm_model[0].get_text_pe(list(self.cats_text)))
@@ -617,9 +606,8 @@ class OVONNet(Net):
             self.object_goal = None
             self.cache_values = torch.stack([torch.from_numpy(self.cache[k]) for k in self.cats_text]).to("cuda")
         else:
-            self.segm_model = [YOLOE("yoloe-v8l-seg.pt").to("cuda")]
+            self.segm_model = [None]
             self.cats_text = list(self.cache.keys())
-            self.segm_model[0].set_classes(self.cats_text, self.segm_model[0].get_text_pe(list(self.cats_text)))
             self.object_goal = None
             self.cache_values = torch.stack([torch.from_numpy(self.cache[k]) for k in self.cats_text]).to("cuda")
 

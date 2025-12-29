@@ -1,0 +1,457 @@
+FROM nvidia/cuda:12.9.1-cudnn-devel-ubuntu24.04
+ENV NVIDIA_DRIVER_CAPABILITIES=all
+ARG PYTHON_VERSION=3.9
+
+
+
+ENV LANG=C.UTF-8 LC_ALL=C.UTF-8
+
+RUN apt-get update && apt-get install -y wget
+RUN wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-keyring_1.1-1_all.deb
+RUN dpkg -i cuda-keyring_1.1-1_all.deb
+RUN apt-get update
+
+# Setup basic packages
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    git \
+    curl \
+    vim \
+    ca-certificates \
+    libjpeg-dev \
+    libpng-dev \
+    libglfw3-dev \
+    libglm-dev \
+    libx11-dev \
+    libomp-dev \
+    libegl1-mesa-dev \
+    pkg-config \
+    wget \
+    zip \
+    unzip &&\
+    rm -rf /var/lib/apt/lists/*
+
+# Install conda
+RUN curl -L -o ~/miniconda.sh https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh && \
+    chmod +x ~/miniconda.sh && \
+    ~/miniconda.sh -b -p /opt/conda && \
+    rm ~/miniconda.sh && \
+    /opt/conda/bin/conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/main && \
+    /opt/conda/bin/conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r && \
+    /opt/conda/bin/conda install numpy pyyaml scipy ipython mkl mkl-include && \
+    /opt/conda/bin/conda clean -ya
+ENV PATH /opt/conda/bin:$PATH
+
+RUN apt-get update --fix-missing && \
+    apt-get install -y wget bzip2 ca-certificates curl git && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+
+
+# Install os-level packages
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+    bash-completion \
+    build-essential \
+    ca-certificates \
+    cmake \
+    curl \
+    git \
+    htop \
+    libegl1 \
+    libxext6 \
+    libjpeg-dev \
+    libpng-dev  \
+    rsync \
+    tmux \
+    unzip \
+    vim \
+    wget \
+    xvfb \
+    && rm -rf /var/lib/apt/lists/* 
+
+RUN apt-get update && \
+    apt-get install -y \
+        wget \
+        build-essential \
+        libssl-dev \
+        && rm -rf /var/lib/apt/lists/*
+
+RUN apt update
+RUN apt install -y gcc-9 g++-9
+RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-9 60 --slave /usr/bin/g++ g++ /usr/bin/g++-9  
+
+RUN dpkg --add-architecture i386
+RUN apt-get update   
+RUN apt install -y libprotobuf-dev protobuf-compiler build-essential
+
+RUN  apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+     libjpeg-dev libglm-dev libglx-mesa0 libgl1 libegl1-mesa-dev mesa-utils xorg-dev freeglut3-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY 10_nvidia.json /usr/share/glvnd/egl_vendor.d/10_nvidia.json
+
+RUN /bin/bash -c '. cd /; wget https://github.com/Kitware/CMake/releases/download/v3.21.3/cmake-3.21.3.tar.gz; tar -zxvf cmake-3.21.3.tar.gz; \
+cd cmake-3.21.3; ./bootstrap; make; make install'
+
+# Conda environment
+RUN conda create -n habitat python=3.10 cmake=3.14.0 -y
+
+# Initialize conda and set habitat environment as default
+RUN conda init bash && \
+    echo "conda activate habitat" >> ~/.bashrc
+
+# Set PATH to use habitat environment by default
+ENV PATH /opt/conda/envs/habitat/bin:$PATH
+ENV CONDA_DEFAULT_ENV=habitat
+ENV CONDA_PREFIX=/opt/conda/envs/habitat
+
+RUN apt-get update && apt-get install -y ca-certificates libeigen3-dev
+# Setup habitat-sim
+# Clone with --recursive to fetch all submodules (dependencies)
+# Configure git for better network handling and retry logic
+# Handle GitLab load issues with retries and fallbacks
+RUN cd / && \
+    git config --global http.postBuffer 524288000 && \
+    git config --global http.maxRequestBuffer 2000M && \
+    git config --global core.compression 0 && \
+    git config --global advice.detachedHead false && \
+    git config --global submodule.fetchJobs 1 && \
+    git config --global http.sslVerify true && \
+    git config --global http.version HTTP/1.1 && \
+    for clone_attempt in 1 2 3 4 5; do \
+        echo "Habitat-sim clone attempt $clone_attempt..." && \
+        if git clone --branch v0.3.2 --recursive --depth 1 --shallow-submodules https://github.com/facebookresearch/habitat-sim.git habitat-sim-tmp 2>&1; then \
+            echo "Clone successful"; \
+            break; \
+        else \
+            echo "Clone failed, cleaning up and retrying..." && \
+            rm -rf habitat-sim-tmp && \
+            sleep $((clone_attempt * 15)); \
+        fi; \
+    done && \
+    if [ ! -d "habitat-sim-tmp" ]; then \
+        echo "All clone attempts failed, trying without --recursive..." && \
+        git clone --branch v0.3.2 https://github.com/facebookresearch/habitat-sim.git habitat-sim-tmp && \
+        cd habitat-sim-tmp && \
+        git submodule init && \
+        for i in 1 2 3 4 5 6; do \
+            echo "Submodule update attempt $i..." && \
+            if git submodule update --recursive --jobs 1 --depth 1 2>&1; then \
+                echo "Submodule update successful"; \
+                break; \
+            else \
+                wait_time=$((i * 15)) && \
+                echo "Submodule update failed, waiting ${wait_time}s before retry..." && \
+                sleep $wait_time; \
+            fi; \
+        done && \
+        cd ..; \
+    fi && \
+    mv habitat-sim-tmp habitat-sim && \
+    cd habitat-sim && \
+    echo "Verifying critical submodules..." && \
+    if [ ! -d "src/deps/pybind11" ] || [ ! -f "src/deps/pybind11/CMakeLists.txt" ]; then \
+        echo "pybind11 missing, cloning directly..." && \
+        cd src/deps && rm -rf pybind11 && \
+        for j in 1 2 3; do \
+            git clone --depth 1 https://github.com/pybind/pybind11.git pybind11 && break || sleep 10; \
+        done && cd ../..; \
+    fi && \
+    if [ ! -d "src/deps/zstd" ]; then \
+        echo "zstd missing, cloning directly..." && \
+        cd src/deps && rm -rf zstd && \
+        for j in 1 2 3; do \
+            git clone --depth 1 --recursive https://github.com/facebook/zstd.git zstd && break || sleep 10; \
+        done && cd ../..; \
+    fi && \
+    if [ -d "src/deps/zstd" ] && [ ! -d "src/deps/zstd/build/cmake" ]; then \
+        echo "zstd/build/cmake missing, trying to initialize nested submodule..." && \
+        cd src/deps/zstd && \
+        git submodule update --init --recursive build/cmake 2>/dev/null || \
+        (mkdir -p build && cd build && \
+         git clone --depth 1 https://github.com/facebook/zstd.git cmake 2>/dev/null || true) && \
+        cd ../../..; \
+    fi && \
+    if [ ! -d "src/deps/recastnavigation" ] || [ ! -d "src/deps/recastnavigation/Recast" ]; then \
+        echo "recastnavigation missing, cloning directly..." && \
+        cd src/deps && rm -rf recastnavigation && \
+        for j in 1 2 3; do \
+            git clone --depth 1 https://github.com/recastnavigation/recastnavigation.git recastnavigation && break || sleep 10; \
+        done && cd ../..; \
+    fi && \
+    if [ ! -d "src/deps/openexr" ] || [ ! -f "src/deps/openexr/CMakeLists.txt" ]; then \
+        echo "openexr missing, cloning directly..." && \
+        cd src/deps && rm -rf openexr && \
+        for j in 1 2 3; do \
+            git clone --depth 1 --recursive https://github.com/AcademySoftwareFoundation/openexr.git openexr && break || sleep 10; \
+        done && cd ../..; \
+    fi && \
+    if [ ! -d "src/deps/magnum-integration" ] || [ ! -f "src/deps/magnum-integration/CMakeLists.txt" ]; then \
+        echo "magnum-integration missing, cloning directly..." && \
+        cd src/deps && rm -rf magnum-integration && \
+        for j in 1 2 3; do \
+            git clone --depth 1 https://github.com/mosra/magnum-integration.git magnum-integration && break || sleep 10; \
+        done && cd ../..; \
+    fi && \
+    if [ ! -d "src/deps/magnum-bindings" ] || [ ! -f "src/deps/magnum-bindings/CMakeLists.txt" ]; then \
+        echo "magnum-bindings missing, cloning directly..." && \
+        cd src/deps && rm -rf magnum-bindings && \
+        for j in 1 2 3; do \
+            git clone --depth 1 https://github.com/mosra/magnum-bindings.git magnum-bindings && break || sleep 10; \
+        done && cd ../..; \
+    fi && \
+    if [ ! -d "src/deps/eigen" ] || [ ! -f "src/deps/eigen/CMakeLists.txt" ]; then \
+        echo "Eigen submodule missing or incomplete, trying direct clone..." && \
+        cd src/deps && rm -rf eigen && \
+        for j in 1 2 3; do \
+            echo "Eigen clone attempt $j..." && \
+            (git clone --depth 1 --branch 3.4 https://gitlab.com/libeigen/eigen.git eigen || \
+             git clone --depth 1 https://github.com/eigenteam/eigen-git-mirror.git eigen) && \
+            break || sleep 20; \
+        done || echo "Warning: Eigen submodule clone failed, but libeigen3-dev is installed"; \
+        cd ../..; \
+    fi && \
+    echo "All submodules verified" && \
+    cd / && \
+    echo "Current directory: $(pwd)" && \
+    echo "Habitat-sim location: $(ls -la /habitat-sim 2>/dev/null | head -1 || echo 'Not found')"
+#COPY root/habitat-sim /habitat-sim
+RUN conda run -n habitat bash -c "cd /habitat-sim && \
+    pip install -r requirements.txt && \
+    python setup.py install --headless --with-cuda"
+
+# Verify habitat-sim installation by testing import and basic functionality
+RUN echo 'import sys' > /tmp/test_habitat_sim.py && \
+    echo 'try:' >> /tmp/test_habitat_sim.py && \
+    echo '    import habitat_sim' >> /tmp/test_habitat_sim.py && \
+    echo '    print("✓ habitat_sim imported successfully")' >> /tmp/test_habitat_sim.py && \
+    echo '    try:' >> /tmp/test_habitat_sim.py && \
+    echo '        version = habitat_sim.__version__' >> /tmp/test_habitat_sim.py && \
+    echo '        print(f"✓ habitat_sim version: {version}")' >> /tmp/test_habitat_sim.py && \
+    echo '    except AttributeError:' >> /tmp/test_habitat_sim.py && \
+    echo '        print("⚠ No __version__ attribute found")' >> /tmp/test_habitat_sim.py && \
+    echo '    try:' >> /tmp/test_habitat_sim.py && \
+    echo '        from habitat_sim import Simulator' >> /tmp/test_habitat_sim.py && \
+    echo '        print("✓ Simulator class imported")' >> /tmp/test_habitat_sim.py && \
+    echo '    except ImportError as e:' >> /tmp/test_habitat_sim.py && \
+    echo '        print(f"✗ Failed to import Simulator: {e}")' >> /tmp/test_habitat_sim.py && \
+    echo '        sys.exit(1)' >> /tmp/test_habitat_sim.py && \
+    echo '    print("✓ All habitat_sim basic imports successful!")' >> /tmp/test_habitat_sim.py && \
+    echo 'except ImportError as e:' >> /tmp/test_habitat_sim.py && \
+    echo '    print(f"✗ ERROR: Failed to import habitat_sim: {e}")' >> /tmp/test_habitat_sim.py && \
+    echo '    print("Python path:")' >> /tmp/test_habitat_sim.py && \
+    echo '    for p in sys.path:' >> /tmp/test_habitat_sim.py && \
+    echo '        print(f"  {p}")' >> /tmp/test_habitat_sim.py && \
+    echo '    import subprocess' >> /tmp/test_habitat_sim.py && \
+    echo '    result = subprocess.run(["pip", "list"], capture_output=True, text=True)' >> /tmp/test_habitat_sim.py && \
+    echo '    print("Installed packages:")' >> /tmp/test_habitat_sim.py && \
+    echo '    print(result.stdout)' >> /tmp/test_habitat_sim.py && \
+    echo '    sys.exit(1)' >> /tmp/test_habitat_sim.py && \
+    echo 'except Exception as e:' >> /tmp/test_habitat_sim.py && \
+    echo '    print(f"✗ ERROR: Unexpected error: {e}")' >> /tmp/test_habitat_sim.py && \
+    echo '    import traceback' >> /tmp/test_habitat_sim.py && \
+    echo '    traceback.print_exc()' >> /tmp/test_habitat_sim.py && \
+    echo '    sys.exit(1)' >> /tmp/test_habitat_sim.py && \
+    conda run -n habitat python /tmp/test_habitat_sim.py && \
+    rm /tmp/test_habitat_sim.py
+
+# Specific versions/Fixes - Install required package versions
+RUN conda run -n habitat pip install --progress-bar=on --no-cache-dir \
+    opencv-python \
+    hydra-core \
+    omegaconf \
+    webdataset==0.1.103 \
+    faster_fifo==1.4.2 \
+    transformers==4.28.0 \
+    accelerate==0.24.1 \
+    einops==0.7.0 \
+    timm==1.0.15 \
+    GPUtil \
+    trimesh \
+    tensorboard \
+    gym==0.24.1 \
+    "pandas<2.0" \
+    numpy==1.26.4
+
+
+# Install GLib runtime libraries required by opencv-python
+RUN apt-get update && apt-get install -y --no-install-recommends \
+libglib2.0-0 \
+&& rm -rf /var/lib/apt/lists/*
+
+# Install challenge specific habitat-lab
+#RUN git clone --branch v0.3.2 https://github.com/facebookresearch/habitat-lab.git
+COPY root/OVSegDT/habitat-lab /habitat-lab
+RUN conda run -n habitat bash -c "cd /habitat-lab && \
+    # Create empty requirements.txt if missing to fix pip build error \
+    touch habitat-lab/requirements.txt && \
+    pip install -e habitat-lab && \
+    pip install -e habitat-baselines"
+
+# Verify habitat-lab installation by testing import
+RUN echo 'import sys' > /tmp/test_habitat_lab.py && \
+    echo 'try:' >> /tmp/test_habitat_lab.py && \
+    echo '    import habitat' >> /tmp/test_habitat_lab.py && \
+    echo '    print("✓ habitat imported successfully")' >> /tmp/test_habitat_lab.py && \
+    echo '    try:' >> /tmp/test_habitat_lab.py && \
+    echo '        from habitat import get_config, Env, RLEnv, VectorEnv, make_dataset' >> /tmp/test_habitat_lab.py && \
+    echo '        print("✓ Core habitat classes imported")' >> /tmp/test_habitat_lab.py && \
+    echo '    except ImportError as e:' >> /tmp/test_habitat_lab.py && \
+    echo '        print(f"✗ Failed to import habitat classes: {e}")' >> /tmp/test_habitat_lab.py && \
+    echo '        sys.exit(1)' >> /tmp/test_habitat_lab.py && \
+    echo '    print("✓ All habitat-lab imports successful!")' >> /tmp/test_habitat_lab.py && \
+    echo 'except ImportError as e:' >> /tmp/test_habitat_lab.py && \
+    echo '    print(f"✗ ERROR: Failed to import habitat: {e}")' >> /tmp/test_habitat_lab.py && \
+    echo '    print("Python path:")' >> /tmp/test_habitat_lab.py && \
+    echo '    for p in sys.path:' >> /tmp/test_habitat_lab.py && \
+    echo '        print(f"  {p}")' >> /tmp/test_habitat_lab.py && \
+    echo '    import subprocess' >> /tmp/test_habitat_lab.py && \
+    echo '    result = subprocess.run(["pip", "list"], capture_output=True, text=True)' >> /tmp/test_habitat_lab.py && \
+    echo '    print("Installed packages:")' >> /tmp/test_habitat_lab.py && \
+    echo '    print(result.stdout)' >> /tmp/test_habitat_lab.py && \
+    echo '    sys.exit(1)' >> /tmp/test_habitat_lab.py && \
+    echo 'except Exception as e:' >> /tmp/test_habitat_lab.py && \
+    echo '    print(f"✗ ERROR: Unexpected error: {e}")' >> /tmp/test_habitat_lab.py && \
+    echo '    import traceback' >> /tmp/test_habitat_lab.py && \
+    echo '    traceback.print_exc()' >> /tmp/test_habitat_lab.py && \
+    echo '    sys.exit(1)' >> /tmp/test_habitat_lab.py && \
+    conda run -n habitat python /tmp/test_habitat_lab.py && \
+    rm /tmp/test_habitat_lab.py 
+
+RUN git clone --branch main --depth 1 https://github.com/naokiyokoyama/frontier_exploration.git frontier_exploration && \
+    cd frontier_exploration && \
+    pip install -e .
+
+# tini for subreap                                   
+ARG TINI_VERSION=v0.9.0
+ADD https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini /bin/tini
+RUN chmod +x /bin/tini
+
+# set default screen to 1 (this is crucial for gym's rendering)
+ENV DISPLAY=:1
+RUN apt-get update && apt-get install -y \
+        git vim \
+        zlib1g-dev libjpeg-dev xvfb ffmpeg xorg-dev libboost-all-dev libsdl2-dev swig \
+    && rm -rf /var/lib/apt/lists/*
+
+
+WORKDIR /
+RUN apt-get update
+
+RUN conda run -n habitat pip install ipython jupyterlab prompt-toolkit
+ 
+WORKDIR /root
+
+RUN apt-get install -y \
+         libglew-dev \ 
+         glew-utils \ 
+         libgstreamer1.0-dev \ 
+         libgstreamer-plugins-base1.0-dev \ 
+         libglib2.0-dev
+
+#Fix locale (UTF8) issue https://askubuntu.com/questions/162391/how-do-i-fix-my-locale-issue
+RUN DEBIAN_FRONTEND=noninteractive apt-get install -y locales
+RUN locale-gen "en_US.UTF-8"
+
+RUN conda run -n habitat pip install imageio
+
+WORKDIR /
+
+RUN conda run -n habitat pip install torch torchvision --index-url https://download.pytorch.org/whl/cu129
+
+RUN conda run -n habitat pip install 'git+https://github.com/facebookresearch/fvcore'
+
+
+RUN apt-get update
+
+
+RUN conda run -n habitat pip install matplotlib tensorboardX
+RUN conda run -n habitat pip install tqdm
+RUN conda run -n habitat pip install tabulate
+RUN conda run -n habitat pip install scikit-fmm
+RUN conda run -n habitat pip install scikit-image
+RUN conda run -n habitat pip install --no-cache-dir Cython
+RUN conda run -n habitat pip install keyboard
+RUN conda run -n habitat pip install seaborn
+RUN conda run -n habitat pip install ifcfg
+RUN conda run -n habitat pip install imgaug
+RUN conda run -n habitat pip install pycocotools
+RUN conda run -n habitat pip install easydict
+RUN conda run -n habitat pip install pyquaternion
+RUN conda run -n habitat pip install ipywidgets
+RUN conda run -n habitat pip install wandb
+RUN conda run -n habitat pip install lmdb
+RUN conda run -n habitat pip install transformations
+RUN conda run -n habitat pip install scikit-learn
+RUN conda run -n habitat pip install h5py
+RUN conda run -n habitat pip install git+https://github.com/openai/CLIP.git
+
+
+
+RUN git clone https://github.com/facebookresearch/detectron2.git /detectron2 && \
+    conda run -n habitat bash -c "cd /detectron2 && pip install --no-build-isolation -e ."
+
+# Copy and install eai-vc from local directory
+COPY root/eai-vc/vc_models /eai-vc/vc_models
+RUN conda run -n habitat bash -c "cd /eai-vc/vc_models && pip install --no-cache-dir -e ."
+
+
+RUN conda run -n habitat pip install pillow==9.5.0
+
+# Install flash-attn with MAX_JOBS=4
+RUN conda run -n habitat bash -c "MAX_JOBS=4 python -m pip install flash-attn==2.4.1 --no-build-isolation"
+
+# Install additional packages
+RUN conda run -n habitat pip install --no-cache-dir \
+    ftfy regex tqdm seaborn scikit-learn \
+    ultralytics \
+    ifcfg lmdb \
+    imageio matplotlib tensorboardX tabulate scikit-fmm scikit-image Cython keyboard pycocotools easydict pyquaternion ipywidgets wandb transformations h5py numba pillow==9.5.0
+
+
+RUN apt -y install supervisor
+
+COPY root/OVSegDT/modeling_llama.py /opt/conda/envs/habitat/lib/python3.10/site-packages/transformers/models/llama/modeling_llama.py
+#COPY root/OVSegDT/nav.py /habitat-lab/habitat-lab/habitat/tasks/nav/nav.py
+
+RUN conda run -n habitat pip install --progress-bar=on --no-cache-dir \
+    opencv-python \
+    hydra-core \
+    omegaconf \
+    webdataset==0.1.103 \
+    faster_fifo==1.4.2 \
+    transformers==4.28.0 \
+    accelerate==0.24.1 \
+    einops==0.7.0 \
+    timm==1.0.15 \
+    GPUtil \
+    trimesh \
+    tensorboard \
+    gym==0.24.1 \
+    "pandas<2.0" \
+    numpy==1.26.4
+
+# jupyterlab port
+EXPOSE 8888
+# tensorboard (if any)
+EXPOSE 6006
+# startup
+COPY image /
+#COPY habitat-challenge-data /data_config
+ENV HOME /
+ENV SHELL /bin/bash
+
+# no password and token for jupyter
+ENV JUPYTER_PASSWORD "11111111111111111111111"
+ENV JUPYTER_TOKEN "11111111111111111111111"
+
+RUN chmod 777 /startup.sh
+RUN chmod 777 /usr/local/bin/jupyter.sh
+RUN chmod 777 /usr/local/bin/xvfb.sh
+
+
+WORKDIR /
+# services like lxde, xvfb, x11vnc, jupyterlab will be started
+
+ENTRYPOINT ["/startup.sh"]

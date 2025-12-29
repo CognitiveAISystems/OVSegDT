@@ -79,7 +79,7 @@ habitat_baselines:
   video_dir: "video_dir_seen"
   test_episode_count: -1
   eval_ckpt_path_dir: "checkpoints/ppo_finetune_cvpr_segm_loss_demo_1e-1_full"
-  num_environments: 32
+  num_environments: 16
   checkpoint_folder: "checkpoints/ppo_finetune_cvpr_segm_loss_demo_1e-1_full"
   trainer_name: "ver_transformer"
   num_updates: -1
@@ -156,9 +156,9 @@ habitat_baselines:
       # Visual encoder backbone
       pretrained_weights: ./data/dagger_ppo_ema_stable_segm_distance_reward_no_slack_5e-4/ckpt.75.pth
       # Initialize with pretrained weights
-      pretrained: True
+      pretrained: False
       # Initialize just the visual encoder backbone with pretrained weights
-      pretrained_encoder: False
+      pretrained_encoder: True
       # Whether or not the visual encoder backbone will be trained.
       train_encoder: False
       # Whether or not to reset the critic linear layer

@@ -17,7 +17,7 @@ from habitat_baselines.common.rollout_storage import RolloutStorage
 from habitat_baselines.rl.ddppo.algo.ddppo import DecentralizedDistributedMixin
 from habitat_baselines.rl.ppo.policy import NetPolicy
 from habitat_baselines.rl.ver.ver_rollout_storage import VERRolloutStorage
-from habitat_baselines.utils.common import LagrangeInequalityCoefficient, inference_mode, linear_decay
+from habitat_baselines.utils.common import LagrangeInequalityCoefficient, inference_mode, linear_decay, get_num_actions
 from torch import Tensor
 from ovon.obs_transformers.relabel_teacher_actions import RelabelTeacherActions
 import math
@@ -224,6 +224,46 @@ class DAgger_PPO(nn.Module):
 
         self.segm_step = 0
 
+    def state_dict(self, destination=None, prefix='', keep_vars=False):
+        state_dict = super().state_dict(destination, prefix, keep_vars)
+        state_dict[prefix + 'entropy_ema'] = self.entropy_ema
+        state_dict[prefix + 'ppo_ratio'] = self.ppo_ratio
+        state_dict[prefix + 'segm_step'] = self.segm_step
+        state_dict[prefix + 'total_frames'] = self.total_frames
+        state_dict[prefix + 'ppo_usage_count'] = self.ppo_usage_count
+        state_dict[prefix + 'dagger_usage_count'] = self.dagger_usage_count
+        state_dict[prefix + 'total_samples'] = self.total_samples
+        return state_dict
+
+    def load_state_dict(self, state_dict, strict=True):
+        self.entropy_ema = state_dict.pop('entropy_ema', None)
+        self.ppo_ratio = state_dict.pop('ppo_ratio', 0.0)
+        self.segm_step = state_dict.pop('segm_step', 0)
+        self.total_frames = state_dict.pop('total_frames', 0)
+        self.ppo_usage_count = state_dict.pop('ppo_usage_count', 0.0)
+        self.dagger_usage_count = state_dict.pop('dagger_usage_count', 0.0)
+        self.total_samples = state_dict.pop('total_samples', 0.0)
+
+        # Handle q_head instantiation if it exists in state_dict but not in self
+        if self.q_head is None and 'q_head.0.weight' in state_dict:
+            weight = state_dict['q_head.0.weight']
+            feat_dim = weight.shape[1]
+            hidden_dim = weight.shape[0]
+            
+            self.q_head = nn.Sequential(
+                nn.Linear(feat_dim, hidden_dim),
+                nn.ReLU(inplace=True),
+                nn.Linear(hidden_dim, hidden_dim),
+                nn.ReLU(inplace=True),
+                nn.Linear(hidden_dim, self.num_actions),
+            ).to(self.device)
+            
+            if self.optimizer is not None:
+                # Add parameters to the optimizer so they are updated/loaded correctly
+                self.optimizer.param_groups[0]["params"].extend(self.q_head.parameters())
+
+        super().load_state_dict(state_dict, strict=strict)
+
     def forward(self, *x):
         raise NotImplementedError
 
@@ -269,6 +309,7 @@ class DAgger_PPO(nn.Module):
                 (self.entropy_high - self.entropy_ema)
                 / (self.entropy_high - self.entropy_low)
             )
+
 
     def update(
         self,

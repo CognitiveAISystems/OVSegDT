@@ -12,7 +12,6 @@ class OVONSim(HabitatSim):
         self.recompute_navmesh(
             self.pathfinder,
             self.navmesh_settings,
-            include_static_objects=False,
         )
         self.curr_scene_goals = {}
 
@@ -26,6 +25,7 @@ class OVONSim(HabitatSim):
             self.habitat_config.navmesh_settings.agent_max_climb
         )
         navmesh_settings.cell_height = self.habitat_config.navmesh_settings.cell_height
+        navmesh_settings.include_static_objects = False
         return navmesh_settings
 
     def reconfigure(
@@ -39,6 +39,5 @@ class OVONSim(HabitatSim):
             self.recompute_navmesh(
                 self.pathfinder,
                 self.navmesh_settings,
-                include_static_objects=False,
             )
             self.curr_scene_goals = {}

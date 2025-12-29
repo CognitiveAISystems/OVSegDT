@@ -120,6 +120,7 @@ class VERTransformerTrainer_custom(VERTrainer):
             pretrained_state = torch.load(
                 self.config.habitat_baselines.rl.ddppo.pretrained_weights,
                 map_location="cpu",
+                weights_only=False,
             )
 
         if self.config.habitat_baselines.rl.ddppo.pretrained:
