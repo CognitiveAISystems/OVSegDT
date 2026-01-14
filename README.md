@@ -1,24 +1,3 @@
-
-apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-    bash-completion \
-    build-essential \
-    ca-certificates \
-    cmake \
-    curl \
-    git \
-    htop \
-    libegl1 \
-    libxext6 \
-    libjpeg-dev \
-    libpng-dev  \
-    rsync \
-    tmux \
-    unzip \
-    vim \
-    wget \
-    xvfb \
-    && rm -rf /var/lib/apt/lists/*
-
 ## :hammer_and_wrench: Installation
 
 ### Getting Started
