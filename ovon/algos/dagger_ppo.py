@@ -180,17 +180,6 @@ class DAgger_PPO(nn.Module):
         self.entropy_ema: Optional[float] = None
         self.ppo_ratio = 0.0  # will be updated every learn step
 
-        # Q-function head for diagnostics only (does NOT affect learning).
-        # It will be lazily instantiated the first time we need it so that we
-        # know the feature dimensionality.
-        self.q_head: Optional[nn.Module] = None
-
-        # Coefficient for auxiliary Q-value loss
-        self.q_loss_coef = 1.0
-
-        # Store lr/eps for later addition of q_head param group
-        self._lr = lr
-        self._eps = eps
 
         # Tracking counters for logging
         self.ppo_usage_count: float = 0.0
@@ -200,27 +189,6 @@ class DAgger_PPO(nn.Module):
         # Running frame counter (kept for compatibility with external callers)
         self.total_frames: int = 0
 
-        # Number of discrete actions (for auxiliary Q head)
-        try:
-            self.num_actions = get_num_actions(self.actor_critic.action_space)
-        except Exception:
-            # Fallback: if policy exposes dim_actions or similar
-            self.num_actions = getattr(self.actor_critic, "dim_actions", 1)
-
-        
-        feat_dim = 512
-        hidden_dim = max(128, feat_dim // 2)
-        self.q_head = nn.Sequential(
-            nn.Linear(feat_dim, hidden_dim),
-            nn.ReLU(inplace=True),
-            nn.Linear(hidden_dim, hidden_dim),
-            nn.ReLU(inplace=True),
-            nn.Linear(hidden_dim, self.num_actions),
-        ).to(self.device)
-        if self.optimizer is not None:
-            # Append q_head parameters to first param group to keep
-            # the total number of groups constant (scheduler expects 3).
-            self.optimizer.param_groups[0]["params"].extend(self.q_head.parameters())
 
         self.segm_step = 0
 
@@ -244,23 +212,6 @@ class DAgger_PPO(nn.Module):
         self.dagger_usage_count = state_dict.pop('dagger_usage_count', 0.0)
         self.total_samples = state_dict.pop('total_samples', 0.0)
 
-        # Handle q_head instantiation if it exists in state_dict but not in self
-        if self.q_head is None and 'q_head.0.weight' in state_dict:
-            weight = state_dict['q_head.0.weight']
-            feat_dim = weight.shape[1]
-            hidden_dim = weight.shape[0]
-            
-            self.q_head = nn.Sequential(
-                nn.Linear(feat_dim, hidden_dim),
-                nn.ReLU(inplace=True),
-                nn.Linear(hidden_dim, hidden_dim),
-                nn.ReLU(inplace=True),
-                nn.Linear(hidden_dim, self.num_actions),
-            ).to(self.device)
-            
-            if self.optimizer is not None:
-                # Add parameters to the optimizer so they are updated/loaded correctly
-                self.optimizer.param_groups[0]["params"].extend(self.q_head.parameters())
 
         super().load_state_dict(state_dict, strict=strict)
 
@@ -321,7 +272,7 @@ class DAgger_PPO(nn.Module):
 
         # Update frame count if provided
         if current_frames is not None:
-            self.total_frames = current_frames
+            self.total_frames = int(current_frames)
         
         # Update PPO to DAgger ratio
         self._update_ppo_ratio()
@@ -402,9 +353,6 @@ class DAgger_PPO(nn.Module):
                 
                 # Complementary probability for DAgger
                 do_bc = 1.0 - prob_ppo
-                
-                # Binary mask used only for some logging quantities
-                do_bc_bin = (do_bc > 0.5).float()
 
                 ################################## logging ##################################
                 # Get the current policy's action distribution for comparison
@@ -430,37 +378,13 @@ class DAgger_PPO(nn.Module):
                     # Measure action agreement
                     action_match = (policy_actions == teacher_actions).float()
                     learner_metrics["action_agreement"].append(action_match.mean().item())
-                    
-                    # Log how often BC is applied despite actions already matching
-                    agreement_stats = (action_match + do_bc_bin).floor()  # 2 if both, 1 if either, 0 if neither
-                    learner_metrics["bc_with_matching_actions"].append(
-                        (agreement_stats > 1.5).float().sum() / (do_bc_bin.sum() + 1e-8)
-                    )
-                
-                # Lazily create q_head once we know feature dimension
-                if self.q_head is None:
-                    feat_dim = features.shape[-1]
-                    hidden_dim = max(128, feat_dim // 2)
-                    self.q_head = nn.Sequential(
-                        nn.Linear(feat_dim, hidden_dim),
-                        nn.ReLU(inplace=True),
-                        nn.Linear(hidden_dim, hidden_dim),
-                        nn.ReLU(inplace=True),
-                        nn.Linear(hidden_dim, self.num_actions),
-                    ).to(self.device)
-                    if self.optimizer is not None:
-                        # Append q_head parameters to first param group to keep
-                        # the total number of groups constant (scheduler expects 3).
-                        self.optimizer.param_groups[0]["params"].extend(self.q_head.parameters())
 
-                # Compute value deltas for diagnostics
+                
                 value_deltas = values_teacher - values
-                value_improvement = value_deltas * do_bc  # Positive values where teacher is better
                 
                 # Record these statistics for debugging
                 record_min_mean_max(values_teacher, "value_teacher")
                 record_min_mean_max(value_deltas, "value_delta")
-                learner_metrics["mean_value_improvement"].append(value_improvement.sum() / (do_bc.sum() + 1e-8))
                 learner_metrics["improvement_ratio"].append(
                     (value_deltas > 0).float().mean().item()  # Fraction where teacher is better
                 )
@@ -483,7 +407,7 @@ class DAgger_PPO(nn.Module):
 
                 # Blend the two policy losses according to probabilistic gate
                 action_loss = (prob_ppo * action_loss_ppo + do_bc * action_loss_dagger)
-                print("Action loss shape", action_loss.shape)
+                #print("Action loss", action_loss_ppo.mean().item())
 
                 # -----  VALUE LOSS  -----
                 values = values.float()
@@ -517,22 +441,6 @@ class DAgger_PPO(nn.Module):
                 else:
                     mean_fn = torch.mean
 
-                # Compute Q-value loss for executed action (TD target = returns)
-                if self.q_head is not None:
-                    features_detached = features.detach()
-                    q_values_train = self.q_head(features_detached)
-                    # Logging Q-values (no grad):
-                    with torch.no_grad():
-                        q_policy_log   = q_values_train.gather(1, policy_actions.long().view(-1,1)).squeeze(-1)
-                        q_teacher_log  = q_values_train.gather(1, teacher_actions.long().view(-1,1)).squeeze(-1)
-                        record_min_mean_max(q_policy_log,  "q_policy")
-                        record_min_mean_max(q_teacher_log, "q_teacher")
-
-                    selected_q = q_values_train.gather(1, batch["actions"].long().view(-1,1)).squeeze(-1)
-                    q_loss_sample = 0.5 * (selected_q - batch["returns"].detach().squeeze(-1)) ** 2
-                    q_loss = mean_fn(q_loss_sample)
-                else:
-                    q_loss = torch.tensor(0.0, device=self.device)
 
                 action_loss, value_loss, dist_entropy = map(
                     mean_fn,
@@ -568,7 +476,6 @@ class DAgger_PPO(nn.Module):
                 else:
                     all_losses.append(self.entropy_coef.lagrangian_loss(dist_entropy))
 
-                all_losses.append(self.q_loss_coef * q_loss)
                 segm_updates_enabled = self.actor_critic.net.segm_update_config.enabled
                 segm_updates_frequency = self.actor_critic.net.segm_update_config.frequency
 
@@ -587,9 +494,7 @@ class DAgger_PPO(nn.Module):
                         learner_metrics["aux_bce"].append(segmentation_loss['bce'])
                     self.segm_step = 0
                 else:
-                    all_losses.extend(torch.mean(do_bc*v["loss"]) for v in aux_loss_res.values())
-                    for v in aux_loss_res.values():
-                        print("Before:", torch.mean(v["loss"]), "after:", torch.mean(do_bc*v["loss"]))
+                    all_losses.extend(torch.mean(v["loss"]) for v in aux_loss_res.values())
 
                 total_loss = torch.stack(all_losses).sum()
 
@@ -630,7 +535,6 @@ class DAgger_PPO(nn.Module):
                         (action_loss_dagger * do_bc).sum() / (dagger_samples + 1e-8)
                     )
                     learner_metrics["dist_entropy"].append(dist_entropy)
-                    learner_metrics["q_loss"].append(q_loss)
                     if epoch == (self.ppo_epoch - 1):
                         learner_metrics["ppo_fraction_clipped"].append(
                             (ratio > (1.0 + self.clip_param)).float().mean()

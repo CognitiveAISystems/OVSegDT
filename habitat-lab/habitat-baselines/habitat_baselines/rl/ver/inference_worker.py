@@ -160,7 +160,7 @@ class InferenceWorkerProcess(ProcessBase):
     def set_rollouts(self, rollouts: VERRolloutStorage):
         self.rollouts = rollouts
         self._current_policy_version = int(
-            self.rollouts.cpu_current_policy_version
+            self.rollouts.cpu_current_policy_version.item()
         )
 
     def _update_actor_critic(self):
@@ -240,7 +240,7 @@ class InferenceWorkerProcess(ProcessBase):
             != self.rollouts.cpu_current_policy_version
         ):
             self._current_policy_version = int(
-                self.rollouts.cpu_current_policy_version
+                self.rollouts.cpu_current_policy_version.item()
             )
             if self._overlapped:
                 self._update_actor_critic()

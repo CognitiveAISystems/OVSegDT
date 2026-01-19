@@ -139,6 +139,7 @@ class Env:
         self._episode_over = False
 
         data = pd.read_csv('ovon/dataset/source_data/Mp3d_category_mapping.tsv', encoding='utf-8', sep="\t",engine='python')
+        data = data.drop_duplicates(subset=['raw_category'])
         data = data.set_index('raw_category')
         self.category_mapping = data['category']
         mp3d_names = sorted([x for x in list(set(data['category'].values)) if isinstance(x, str)])
@@ -280,6 +281,10 @@ class Env:
 
         self.index_to_title_map = {obj.category.index(): self.category_mapping.get(obj.category.name(), 'unknown') for obj in self.sim.semantic_annotations().objects}
         self.instance_id_to_label_id = {int(obj.id.split("_")[-1]): obj.category.index() for obj in self.sim.semantic_annotations().objects}
+
+        # print(len(self.sim.semantic_annotations().objects))
+        # print(self.sim.semantic_annotations().objects[0])
+        # print({obj.id: obj.category.index() for obj in self.sim.semantic_annotations().objects})
 
         observations['semantic'][observations['semantic']>max(self.instance_id_to_label_id.keys())] = 0
         self.sem_to_model = np.zeros_like(observations['semantic'])

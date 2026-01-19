@@ -216,7 +216,7 @@ RUN cd / && \
     cd / && \
     echo "Current directory: $(pwd)" && \
     echo "Habitat-sim location: $(ls -la /habitat-sim 2>/dev/null | head -1 || echo 'Not found')"
-#COPY root/habitat-sim /habitat-sim
+
 RUN conda run -n habitat bash -c "cd /habitat-sim && \
     pip install -r requirements.txt && \
     python setup.py install --headless --with-cuda"
@@ -270,7 +270,7 @@ RUN conda run -n habitat pip install --progress-bar=on --no-cache-dir \
     GPUtil \
     trimesh \
     tensorboard \
-    gym==0.24.1 \
+    gym==0.25.1 \
     "pandas<2.0" \
     numpy==1.26.4
 
@@ -400,7 +400,7 @@ RUN conda run -n habitat bash -c "cd /eai-vc/vc_models && pip install --no-cache
 RUN conda run -n habitat pip install pillow==9.5.0
 
 # Install flash-attn with MAX_JOBS=4
-RUN conda run -n habitat bash -c "MAX_JOBS=4 python -m pip install flash-attn==2.4.1 --no-build-isolation"
+#RUN conda run -n habitat bash -c "MAX_JOBS=4 python -m pip install flash-attn==2.4.1 --no-build-isolation"
 
 # Install additional packages
 RUN conda run -n habitat pip install --no-cache-dir \
@@ -428,7 +428,7 @@ RUN conda run -n habitat pip install --progress-bar=on --no-cache-dir \
     GPUtil \
     trimesh \
     tensorboard \
-    gym==0.24.1 \
+    gym==0.25.1 \
     "pandas<2.0" \
     numpy==1.26.4
 

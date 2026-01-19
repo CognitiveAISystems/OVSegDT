@@ -14,7 +14,7 @@ from ovon.obs_transformers import (
     resize,
 )
 from ovon.task import rewards, sensors, simulator
-from ovon.trainers import dagger_trainer, ppo_trainer_no_2d, ver_trainer, ver_transformer_trainer_custom
+# from ovon.trainers import dagger_trainer, ppo_trainer_no_2d, ver_trainer, ver_transformer_trainer_custom
 from ovon.utils import visualize_trajectories
 
 try:

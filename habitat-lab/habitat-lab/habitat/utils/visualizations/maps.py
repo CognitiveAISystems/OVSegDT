@@ -22,7 +22,7 @@ except ImportError:
 cv2 = try_cv2_import()
 
 
-AGENT_SPRITE = imageio.imread(
+AGENT_SPRITE = imageio.v2.imread(
     os.path.join(
         os.path.dirname(__file__),
         "assets",

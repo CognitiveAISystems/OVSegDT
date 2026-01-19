@@ -430,6 +430,8 @@ class CustomPPOConfig(PPOConfig):
     init_checkpoint: str = ""
     append_global_avg_pool: bool = False
 
+    num_warmup_steps_per_env: int = 1000
+
 @dataclass
 class VERConfig(HabitatBaselinesBaseConfig):
     """Variable experience rollout config"""

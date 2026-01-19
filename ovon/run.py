@@ -13,6 +13,7 @@ from habitat_baselines.run import execute_exp
 from omegaconf import OmegaConf  # keep this import for print debugging
 
 from ovon.config import ClipObjectGoalSensorConfig, HabitatConfigPlugin
+from ovon.trainers import dagger_trainer, ppo_trainer_no_2d, ver_trainer, ver_transformer_trainer_custom
 
 
 def register_plugins():

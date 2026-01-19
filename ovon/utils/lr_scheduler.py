@@ -105,6 +105,15 @@ class PIRLNavLRScheduler:
             param_group, lr = data
             param_group["lr"] = lr
 
+    def get_last_lr(self):
+        """
+        Return the last computed learning rates by current scheduler.
+        """
+        return [
+            base_lr * lr_lamda(self.update)
+            for base_lr, lr_lamda in zip(self.base_lrs, self.lr_lambdas)
+        ]
+
     def linear_warmup(
         self,
         update,

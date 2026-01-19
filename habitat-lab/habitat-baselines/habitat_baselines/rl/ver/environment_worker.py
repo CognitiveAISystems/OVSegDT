@@ -111,6 +111,7 @@ class EnvironmentWorkerProcess(ProcessBase):
         self.build_dispatch_table(EnvironmentWorkerTasks)
 
     def wait(self):
+        logger.info(f"EnvironmentWorker-{self.env_idx} wait")
         self.response_queue.put("REQ")
 
     def close(self):
@@ -212,6 +213,7 @@ class EnvironmentWorkerProcess(ProcessBase):
         return self.queues.environments[self.env_idx]
 
     def set_transfer_buffers(self, torch_transfer_buffers: TensorDict):
+        logger.info(f"EnvironmentWorker-{self.env_idx} set_transfer_buffers")
         self._torch_transfer_buffers = torch_transfer_buffers
         self._torch_transfer_buffers["environment_ids"][
             self.env_idx

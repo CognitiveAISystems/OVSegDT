@@ -21,6 +21,7 @@ from habitat_baselines.rl.ddppo.algo import DDPPO
 from habitat_baselines.rl.ddppo.ddp_utils import (
     EXIT,
     add_signal_handlers,
+    gather_objects,
     get_distrib_size,
     get_free_port_distributed,
     get_main_addr,
@@ -38,7 +39,7 @@ from habitat_baselines.rl.ver.environment_worker import (
     construct_environment_workers,
 )
 from habitat_baselines.rl.ver.preemption_decider import PreemptionDeciderWorker
-from habitat_baselines.rl.ver.report_worker import ReportWorker
+from habitat_baselines.rl.ver.report_worker import ReportWorker, ReportWorkerProcess
 from habitat_baselines.rl.ver.task_enums import ReportWorkerTasks
 from habitat_baselines.rl.ver.timing import Timing
 from habitat_baselines.rl.ver.ver_rollout_storage import VERRolloutStorage
@@ -47,6 +48,76 @@ from habitat_baselines.rl.ver.worker_common import (
     WorkerBase,
     WorkerQueues,
 )
+import attr
+
+@attr.s(auto_attribs=True)
+class ReportWorkerProcessCustom(ReportWorkerProcess):
+    def log_metrics(self, writer, learner_metrics):
+        warmup_steps = self.config.habitat_baselines.rl.ppo.get("num_warmup_steps_per_env", 1000) * self.config.habitat_baselines.num_environments
+        
+        if self.num_steps_done < warmup_steps:
+             self.steps_delta = int(self._all_reduce(self.steps_delta))
+             self.num_steps_done += self.steps_delta
+             
+             last_time_taken = float(self.time_taken)
+             self.time_taken.fill_(
+                self._all_reduce(self.get_time() - self.start_time)
+                / self.world_size
+                + self._prev_time_taken
+             )
+             self.running_frames_window += self.steps_delta
+             self.running_time_window += float(self.time_taken) - last_time_taken
+             self.steps_delta = 0
+             
+             # Collect stats but do not clear them or write to writer
+             all_stats_this_rollout = gather_objects(
+                dict(self.stats_this_rollout), device=self.device
+             )
+             self.stats_this_rollout.clear()
+             if rank0_only():
+                assert all_stats_this_rollout is not None
+                assert self.window_episode_stats is not None
+                for stats in all_stats_this_rollout:
+                    for k, vs in stats.items():
+                        self.window_episode_stats[k].add_many(vs)
+             
+             return
+
+        super().log_metrics(writer, learner_metrics)
+
+class ReportWorkerCustom(ReportWorker):
+    def __init__(
+        self,
+        mp_ctx,
+        port,
+        config,
+        report_queue,
+        my_t_zero,
+        init_num_steps=0,
+        run_id=None,
+    ):
+        self.num_steps_done = torch.full(
+            (), int(init_num_steps), dtype=torch.int64
+        )
+        self.time_taken = torch.full((), 0.0, dtype=torch.float64)
+        self.num_steps_done.share_memory_()
+        self.time_taken.share_memory_()
+        self.report_queue = report_queue
+        WorkerBase.__init__(
+            self,
+            mp_ctx,
+            ReportWorkerProcessCustom,
+            port,
+            config,
+            report_queue,
+            my_t_zero,
+            self.num_steps_done,
+            self.time_taken,
+            run_id=run_id,
+        )
+
+        self.response_queue.get()
+
 from habitat_baselines.utils.common import (
     cosine_decay,
     get_num_actions,
@@ -123,6 +194,9 @@ class VERTransformerTrainer_custom(VERTrainer):
                 weights_only=False,
             )
 
+            # assert False, pretrained_state.keys()
+            # AssertionError: dict_keys(['state_dict', 'config', 'extra_state'])
+
         if self.config.habitat_baselines.rl.ddppo.pretrained:
             missing_keys = self.actor_critic.load_state_dict(
                 {  # type: ignore
@@ -159,6 +233,18 @@ class VERTransformerTrainer_custom(VERTrainer):
             nn.init.constant_(self.actor_critic.critic.fc.bias, 0)
 
         self.agent = PPOPirlNav_custom.from_config(self.actor_critic, ppo_cfg)
+
+        if (
+            self.config.habitat_baselines.rl.ddppo.pretrained
+            and "pretrained_state" in locals()
+            and pretrained_state is not None
+        ):
+
+            # Load agent state (entropy_ema, ppo_ratio, etc.) to prevent reset of adaptive gating
+            # strict=False allows for some flexibility (e.g. if q_head is missing or extra)
+            self.agent.load_state_dict(pretrained_state["state_dict"], strict=False)
+            logger.info("Loaded agent state from pretrained weights (entropy_ema, etc.)")
+            
 
 
     def _init_train(self, resume_state):
@@ -254,7 +340,7 @@ class VERTransformerTrainer_custom(VERTrainer):
         ):
             run_id = resume_state["requeue_stats"]["report_worker_state"]["run_id"]
 
-        self.report_worker = ReportWorker(
+        self.report_worker = ReportWorkerCustom(
             self.mp_ctx,
             get_free_port_distributed("report", tcp_store),
             self.config,
@@ -510,7 +596,7 @@ class VERTransformerTrainer_custom(VERTrainer):
         resume_state = load_resume_state(self.config)
         
         if resume_state is not None:
-            self.config = resume_state["config"]
+            # self.config = resume_state["config"]
 
             requeue_stats = resume_state["requeue_stats"]
             self.num_steps_done = requeue_stats["num_steps_done"]
@@ -617,7 +703,7 @@ class VERTransformerTrainer_custom(VERTrainer):
                 self.queues.report.put(
                     (
                         ReportWorkerTasks.num_steps_collected,
-                        int(self.rollouts.num_steps_collected),
+                        int(self.rollouts.num_steps_collected.item()),
                     )
                 )
 
@@ -631,6 +717,11 @@ class VERTransformerTrainer_custom(VERTrainer):
             lrs = {}
             for i, param_group in enumerate(self.agent.optimizer.param_groups):
                 lrs["lr_{}".format(i)] = param_group["lr"]
+
+            # Update the agent frame count with the correct number of steps
+            # This ensures DAgger logging has the correct frame count
+            if hasattr(self.agent, "total_frames"):
+                self.agent.total_frames = int(self.num_steps_done)
 
             learner_metrics = {
                 **losses,

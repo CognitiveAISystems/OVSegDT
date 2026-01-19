@@ -11,7 +11,7 @@ from gym import spaces
 from habitat import logger
 from habitat.config import read_write
 from habitat.utils import profiling_wrapper
-from habitat_baselines import VERTrainer
+from habitat_baselines.rl.ver.ver_trainer import VERTrainer
 from habitat_baselines.common.baseline_registry import baseline_registry
 from habitat_baselines.common.obs_transformers import (
     apply_obs_transforms_obs_space,
