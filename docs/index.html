@@ -10,34 +10,22 @@
     />
     <style>
       :root {
-        color-scheme: light dark;
-        --bg: #0f1115;
-        --fg: #e7e9ee;
-        --muted: #b7bdc7;
-        --accent: #5aa9ff;
-        --card: #151923;
-        --border: #2a2f3a;
-      }
-      @media (prefers-color-scheme: light) {
-        :root {
-          --bg: #ffffff;
-          --fg: #0f1115;
-          --muted: #4c5563;
-          --accent: #0059d6;
-          --card: #f6f7fb;
-          --border: #e2e7f0;
-        }
+        --bg: #ffffff;
+        --fg: #0f1115;
+        --muted: #5b6573;
+        --accent: #1a73e8;
+        --card: #f7f8fb;
+        --border: #e4e7ee;
       }
       * {
         box-sizing: border-box;
       }
       body {
         margin: 0;
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue",
-          Arial, "Noto Sans", "Liberation Sans", sans-serif;
+        font-family: "Helvetica Neue", Arial, "Noto Sans", sans-serif;
         background: var(--bg);
         color: var(--fg);
-        line-height: 1.6;
+        line-height: 1.7;
       }
       a {
         color: var(--accent);
@@ -47,72 +35,69 @@
         text-decoration: underline;
       }
       .container {
-        width: min(1100px, 92vw);
+        width: min(1020px, 92vw);
         margin: 0 auto;
-        padding: 40px 0 64px;
-      }
-      header {
-        display: grid;
-        gap: 24px;
-        align-items: center;
+        padding: 48px 0 80px;
       }
       .hero {
-        display: grid;
-        gap: 20px;
-        padding: 28px;
-        border: 1px solid var(--border);
-        border-radius: 16px;
-        background: var(--card);
+        text-align: center;
+        padding-bottom: 32px;
+        border-bottom: 1px solid var(--border);
       }
       .hero h1 {
-        margin: 0;
-        font-size: clamp(28px, 4vw, 44px);
-        line-height: 1.1;
+        margin: 0 0 12px;
+        font-size: clamp(30px, 4vw, 48px);
+        letter-spacing: -0.02em;
       }
       .hero p {
-        margin: 0;
+        margin: 0 auto 20px;
+        max-width: 720px;
         color: var(--muted);
         font-size: 1.05rem;
       }
       .cta {
         display: flex;
         flex-wrap: wrap;
+        justify-content: center;
         gap: 12px;
       }
       .cta a {
         display: inline-flex;
         align-items: center;
         gap: 8px;
-        padding: 10px 16px;
+        padding: 10px 18px;
         border-radius: 999px;
         border: 1px solid var(--border);
-        background: transparent;
+        background: #fff;
         color: var(--fg);
+        font-weight: 600;
       }
       .cta a.primary {
         background: var(--accent);
         border-color: var(--accent);
         color: #fff;
       }
+      .section {
+        margin-top: 36px;
+      }
+      .section h2 {
+        margin: 0 0 14px;
+        font-size: 1.4rem;
+      }
       .grid {
         display: grid;
         gap: 24px;
-        margin-top: 32px;
       }
-      @media (min-width: 860px) {
+      @media (min-width: 900px) {
         .grid {
           grid-template-columns: repeat(2, minmax(0, 1fr));
         }
       }
       .card {
-        padding: 24px;
+        padding: 22px;
         border: 1px solid var(--border);
-        border-radius: 14px;
+        border-radius: 12px;
         background: var(--card);
-      }
-      .card h2 {
-        margin-top: 0;
-        margin-bottom: 12px;
       }
       ul {
         padding-left: 20px;
@@ -123,14 +108,7 @@
       }
       figure img {
         width: 100%;
-        border-radius: 12px;
-        border: 1px solid var(--border);
-        background: #fff;
-      }
-      .pdf-embed {
-        width: 100%;
-        height: 420px;
-        border-radius: 12px;
+        border-radius: 10px;
         border: 1px solid var(--border);
         background: #fff;
       }
@@ -147,11 +125,12 @@
       .table {
         width: 100%;
         border-collapse: collapse;
-        margin-top: 12px;
+        margin-top: 10px;
+        background: #fff;
       }
       .table th,
       .table td {
-        padding: 8px 10px;
+        padding: 10px 12px;
         border-bottom: 1px solid var(--border);
         text-align: left;
       }
@@ -163,33 +142,26 @@
         margin-top: 48px;
         color: var(--muted);
         font-size: 0.95rem;
-      }
-      .pdf-link {
-        display: inline-block;
-        margin-top: 6px;
-        color: var(--muted);
+        text-align: center;
       }
     </style>
   </head>
   <body>
     <div class="container">
       <header class="hero">
-        <div>
-          <h1>OVSegDT</h1>
-          <p>
-            Segmenting Transformer for Open-Vocabulary Object Goal Navigation. A lightweight RGB-only
-            agent that generalizes to unseen object categories using a goal mask encoder and
-            entropy-adaptive training.
-          </p>
-        </div>
+        <h1>OVSegDT</h1>
+        <p>
+          Segmenting Transformer for Open-Vocabulary Object Goal Navigation. A lightweight RGB-only
+          agent that generalizes to unseen object categories using a goal mask encoder and
+          entropy-adaptive training.
+        </p>
         <div class="cta">
           <a class="primary" href="https://arxiv.org/abs/2508.11479">Paper on arXiv</a>
           <a href="../README.md">Repository README</a>
-          <a href="https://arxiv.org/abs/2508.11479">Full paper (arXiv)</a>
         </div>
       </header>
 
-      <section class="grid">
+      <section class="section grid">
         <div class="card">
           <h2>Overview</h2>
           <p>
@@ -219,36 +191,24 @@
         </div>
       </section>
 
-      <section class="grid">
+      <section class="section grid">
         <div class="card">
           <h2>Method at a Glance</h2>
           <figure>
-            <object class="pdf-embed" data="figures/OVSegDT_scheme.pdf" type="application/pdf">
-              <a href="figures/OVSegDT_scheme.pdf">Open OVSegDT architecture figure (PDF).</a>
-            </object>
+            <img src="figures/scheme.png" alt="OVSegDT architecture overview" />
             <figcaption>Architecture: RGB + text + action + mask → transformer → action + value.</figcaption>
           </figure>
-          <a class="pdf-link" href="figures/OVSegDT_scheme.pdf">Open figure (PDF)</a>
         </div>
         <div class="card">
           <h2>Qualitative Behavior</h2>
           <figure>
-            <object
-              class="pdf-embed"
-              data="figures/OVSegDT-Qualitative-Examples.pdf"
-              type="application/pdf"
-            >
-              <a href="figures/OVSegDT-Qualitative-Examples.pdf"
-                >Open qualitative navigation examples (PDF).</a
-              >
-            </object>
+            <img src="figures/trajectory-example.png" alt="Qualitative navigation examples" />
             <figcaption>Goal masks guide efficient exploration and goal reaching.</figcaption>
           </figure>
-          <a class="pdf-link" href="figures/OVSegDT-Qualitative-Examples.pdf">Open figure (PDF)</a>
         </div>
       </section>
 
-      <section class="card" style="margin-top: 32px;">
+      <section class="section card">
         <h2>Results</h2>
         <p>
           OVSegDT reaches state-of-the-art RGB-only performance on HM3D-OVON while matching seen and
@@ -294,7 +254,7 @@
         </div>
       </section>
 
-      <section class="card" style="margin-top: 32px;">
+      <section class="section card">
         <h2>Adaptation to Predicted Segmentation</h2>
         <p>
           OVSegDT is trained with ground-truth masks for fast convergence, then fine-tuned with
@@ -304,18 +264,11 @@
         </p>
       </section>
 
-      <section class="card" style="margin-top: 32px;">
+      <section class="section card">
         <h2>Graphical Abstract</h2>
         <figure>
-          <object
-            class="pdf-embed"
-            data="figures/OVSegDT-Graphical-Abstract.pdf"
-            type="application/pdf"
-          >
-            <a href="figures/OVSegDT-Graphical-Abstract.pdf">Open graphical abstract (PDF).</a>
-          </object>
+          <img src="figures/Graphical-Abstract.png" alt="OVSegDT graphical abstract" />
         </figure>
-        <a class="pdf-link" href="figures/OVSegDT-Graphical-Abstract.pdf">Open figure (PDF)</a>
       </section>
 
       <footer>
