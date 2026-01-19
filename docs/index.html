@@ -8,6 +8,17 @@
       name="description"
       content="OVSegDT is a lightweight transformer for open-vocabulary object-goal navigation using RGB input and a goal mask encoder."
     />
+    <script>
+      window.MathJax = {
+        tex: { inlineMath: [["\\(", "\\)"], ["$", "$"]], displayMath: [["\\[", "\\]"]] },
+        svg: { fontCache: "global" },
+      };
+    </script>
+    <script
+      id="MathJax-script"
+      async
+      src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"
+    ></script>
     <style>
       :root {
         --bg: #ffffff;
@@ -88,9 +99,14 @@
         display: grid;
         gap: 24px;
       }
+      .split {
+        display: grid;
+        gap: 24px;
+      }
       @media (min-width: 900px) {
-        .grid {
-          grid-template-columns: repeat(2, minmax(0, 1fr));
+        .split {
+          grid-template-columns: 1.1fr 0.9fr;
+          align-items: start;
         }
       }
       .card {
@@ -116,6 +132,19 @@
         color: var(--muted);
         font-size: 0.95rem;
         margin-top: 8px;
+      }
+      .formula {
+        margin: 10px 0 6px;
+        padding: 10px 12px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: #fff;
+        font-size: 0.98rem;
+      }
+      .formula-caption {
+        margin: 0 0 10px;
+        color: var(--muted);
+        font-size: 0.92rem;
       }
       .gallery {
         display: grid;
@@ -144,6 +173,19 @@
         font-size: 0.95rem;
         text-align: center;
       }
+      .reference-box {
+        background: #eaf4ff;
+        border-left: 5px solid var(--accent);
+        margin: 24px 0 12px 0;
+        padding: 12px 20px;
+        border-radius: 7px;
+        color: #1a3050;
+        font-size: 1.01rem;
+      }
+      .reference-box a {
+        color: #1741a7;
+        font-weight: bold;
+      }
     </style>
   </head>
   <body>
@@ -157,101 +199,318 @@
         </p>
         <div class="cta">
           <a class="primary" href="https://arxiv.org/abs/2508.11479">Paper on arXiv</a>
-          <a href="../README.md">Repository README</a>
+          <a href="https://github.com/CognitiveAISystems/OVSegDT">GitHub Repository</a>
+
         </div>
       </header>
 
-      <section class="section grid">
-        <div class="card">
-          <h2>Overview</h2>
+      <div class="reference-box">
+        Benchmark: <a href="https://arxiv.org/abs/2409.14296">HM3D-OVON: A Dataset and Benchmark for Open-Vocabulary Object Goal Navigation</a>
+      </div>
+
+      <section class="section card split">
+        <div>
+          <h2>Abstract</h2>
           <p>
-            Open-vocabulary Object Goal Navigation (OVON) requires an embodied agent to locate and
-            reach a target object specified by free-form language, including categories never seen
-            during training. OVSegDT achieves strong generalization with a compact 130M-parameter
-            transformer by integrating semantic segmentation cues directly into the policy.
-          </p>
-          <p>
-            The model fuses RGB, text goal, previous action, and a binary goal mask, then predicts
-            actions from the last 100 steps of observation history.
+            Open-vocabulary Object Goal Navigation requires an embodied agent to reach objects
+            described by free-form language, including categories never seen during training.
+            Existing end-to-end policies often overfit small simulator datasets and exhibit unsafe
+            behavior such as frequent collisions. OVSegDT is a lightweight transformer policy that
+            introduces two synergistic components: (1) a semantic branch with a target-mask encoder
+            and auxiliary segmentation loss to ground the goal and provide spatial cues, and (2)
+            Entropy-Adaptive Loss Modulation (EALM), a per-sample scheduler that continuously balances
+            imitation and reinforcement learning signals using policy entropy. These additions reduce
+            sample complexity and improve navigation safety while keeping inference cost low with an
+            RGB-only 130M-parameter model.
           </p>
         </div>
-        <div class="card">
-          <h2>Key Contributions</h2>
-          <ul>
-            <li>Goal mask encoder for precise spatial grounding of the target object.</li>
-            <li>
-              Entropy-Adaptive Loss Modulation (EALM) that blends imitation and PPO without manual
-              phase switches.
-            </li>
-            <li>
-              Auxiliary segmentation loss + semantic reward to improve adaptation to predicted
-              masks.
-            </li>
-          </ul>
+        <div style="display: flex; flex-direction: column; justify-content: center; height: 100%;">
+          <h2 style="visibility: hidden;">&nbsp;</h2>
+          <figure style="margin: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100%;">
+            <img src="figures/Graphical-Abstract.png" alt="OVSegDT graphical abstract" style="display: block; margin: 0 auto;" />
+          </figure>
         </div>
       </section>
 
-      <section class="section grid">
-        <div class="card">
-          <h2>Method at a Glance</h2>
+      <section class="section card split">
+        <div>
+          <h2>Overview</h2>
+          <p>
+            OVSegDT targets Open-Vocabulary Object Goal Navigation (OVON), where the agent must
+            explore unfamiliar scenes and navigate to a target object described by text. The
+            observation at time step <em>t</em> includes the current RGB frame, the text goal, the
+            previous discrete action, and a binary segmentation mask for the target category. A
+            transformer processes the last 100 observation embeddings to predict the next action.
+          </p>
+          <p>
+            The approach is mapless and does not require depth, odometry, or large vision-language
+            models. Instead, it leverages compact encoders and a training strategy that improves
+            both convergence speed and generalization to unseen categories.
+          </p>
+          <p>
+            OVSegDT is evaluated on the
+            <a href="https://arxiv.org/abs/2409.14296" target="_blank">HM3D-OVON benchmark</a>
+            <sup>[1]</sup>, a large-scale dataset for open-vocabulary object-goal navigation in
+            photorealistic 3D scanned indoor environments.
+          </p>
+        </div>
+        <div>
+          <h2>Model Architecture</h2>
           <figure>
             <img src="figures/scheme.png" alt="OVSegDT architecture overview" />
-            <figcaption>Architecture: RGB + text + action + mask → transformer → action + value.</figcaption>
-          </figure>
-        </div>
-        <div class="card">
-          <h2>Qualitative Behavior</h2>
-          <figure>
-            <img src="figures/trajectory-example.png" alt="Qualitative navigation examples" />
-            <figcaption>Goal masks guide efficient exploration and goal reaching.</figcaption>
           </figure>
         </div>
       </section>
 
       <section class="section card">
+        <h2>Key Contributions</h2>
+        <ul>
+          <li>Goal mask encoder for precise spatial grounding of the target object.</li>
+          <li>
+            Entropy-Adaptive Loss Modulation (EALM) that blends DAgger and PPO without manual phase
+            switching.
+          </li>
+          <li>
+            Auxiliary segmentation loss and semantic reward to improve adaptation to predicted
+            masks and maintain generalization on unseen categories.
+          </li>
+        </ul>
+      </section>
+
+
+      <section class="section card">
+        <h2>Training Objectives</h2>
+        <p>
+          The total loss combines PPO, behavior cloning, value regression, entropy bonus, and
+          auxiliary segmentation loss (Dice + BCE). A semantic reward encourages progress toward
+          the goal and increasing target-mask area in the current view. These components are kept
+          task-invariant across experiments.
+        </p>
+        <div class="formula">
+          \[
+          \mathcal{L}_{\text{total}}(\theta) =
+          c_v\,\mathcal{L}_V(\theta) + \mathcal{L}_{\text{EALM}}(\theta)
+          - \beta H_t + \mathcal{L}_{\text{seg}}(\theta)
+          \]
+        </div>
+        <p class="formula-caption">
+          The full objective adds value regression, entropy bonus, and segmentation loss to EALM.
+        </p>
+        <ul>
+          <li>
+            <strong>EALM:</strong> uses an EMA of policy entropy to compute a per-sample mixing
+            coefficient between PPO and behavior cloning, enabling a single-stage training pipeline.
+            <div class="formula">
+              \[
+              \lambda_t =
+              \mathrm{clip}\!\left(
+              \frac{H_{\text{high}} - \hat H_t}{H_{\text{high}} - H_{\text{low}}},\, 0,\, 1
+              \right),\quad
+              \hat H_t = \alpha \hat H_{t-1} + (1-\alpha) H_t
+              \]
+            </div>
+            <p class="formula-caption">
+              Entropy EMA \(\hat H_t\) is mapped to a mixing weight \(\lambda_t\) that schedules
+              PPO vs. behavior cloning.
+            </p>
+            <div class="formula">
+              \[
+              \mathcal{L}_{\text{EALM}}(\theta) =
+              p_{\text{PPO}}\,\mathcal{L}_{\text{PPO}}(\theta) +
+              p_{\text{BC}}\,\mathcal{L}_{\text{BC}}(\theta),\quad
+              p_{\text{PPO}} = \lambda_t,\; p_{\text{BC}} = 1 - \lambda_t
+              \]
+            </div>
+            <p class="formula-caption">
+              The policy loss interpolates between PPO and behavior cloning per sample.
+            </p>
+          </li>
+          <li>
+            <strong>Semantic reward:</strong> combines distance-to-goal progress with changes in
+            target-mask area to stabilize training with sparse success signals.
+            <div class="formula">
+              \[
+              r^{\text{sem}}_t = \lambda_{\text{sem}}
+              \bigl(\mathrm{clip}(d_{t-1}-d_t) + \mathrm{clip}(s_t - s_{t-1})\bigr)
+              \]
+            </div>
+            <p class="formula-caption">
+              The reward increases when the agent moves closer and the target mask grows in view.
+            </p>
+          </li>
+          <li>
+            <strong>Auxiliary segmentation loss:</strong> accelerates representation learning early
+            in training and improves robustness to noisy masks.
+            <div class="formula">
+              \[
+              \mathcal{L}_{\text{seg}}(\theta) =
+              \mathcal{L}_{\text{Dice}}(\theta) + \mathcal{L}_{\text{CE}}(\theta)
+              \]
+            </div>
+            <p class="formula-caption">
+              Dice + BCE supervision encourages accurate reconstruction of the goal mask.
+            </p>
+          </li>
+        </ul>
+      </section>
+
+      <section class="section card">
         <h2>Results</h2>
         <p>
-          OVSegDT reaches state-of-the-art RGB-only performance on HM3D-OVON while matching seen and
-          unseen category performance.
+          OVSegDT reaches state-of-the-art RGB-only performance on
+          <a href="https://arxiv.org/abs/2409.14296" target="_blank">HM3D-OVON</a>
+          while matching seen and unseen category performance<sup>[1]</sup>.
         </p>
         <table class="table">
           <thead>
             <tr>
-              <th>Split</th>
-              <th>Success Rate (SR)</th>
+              <th>Method</th>
+              <th>Depth</th>
+              <th>Odometry</th>
+              <th colspan="2">Val Seen</th>
+              <th colspan="2">Val Seen Synonyms</th>
+              <th colspan="2">Val Unseen</th>
+            </tr>
+            <tr>
+              <th></th>
+              <th></th>
+              <th></th>
+              <th>SR</th>
+              <th>SPL</th>
+              <th>SR</th>
+              <th>SPL</th>
+              <th>SR</th>
               <th>SPL</th>
             </tr>
           </thead>
           <tbody>
             <tr>
-              <td>Val Seen</td>
-              <td>43.6%</td>
-              <td>20.1%</td>
+              <td>BC</td>
+              <td>No</td>
+              <td>No</td>
+              <td>11.1 ± 0.1</td>
+              <td>4.5 ± 0.1</td>
+              <td>9.9 ± 0.4</td>
+              <td>3.8 ± 0.1</td>
+              <td>5.4 ± 0.1</td>
+              <td>1.9 ± 0.2</td>
             </tr>
             <tr>
-              <td>Val Unseen</td>
-              <td>44.7%</td>
-              <td>20.6%</td>
+              <td>DAgger</td>
+              <td>No</td>
+              <td>No</td>
+              <td>18.1 ± 0.4</td>
+              <td>9.4 ± 0.3</td>
+              <td>15.0 ± 0.4</td>
+              <td>7.4 ± 0.3</td>
+              <td>10.2 ± 0.5</td>
+              <td>4.7 ± 0.3</td>
+            </tr>
+            <tr>
+              <td>RL</td>
+              <td>No</td>
+              <td>No</td>
+              <td>39.2 ± 0.4</td>
+              <td>18.7 ± 0.2</td>
+              <td>27.8 ± 0.1</td>
+              <td>11.7 ± 0.2</td>
+              <td>18.6 ± 0.3</td>
+              <td>7.5 ± 0.2</td>
+            </tr>
+            <tr>
+              <td>BCRL</td>
+              <td>No</td>
+              <td>No</td>
+              <td>20.2 ± 0.6</td>
+              <td>8.2 ± 0.4</td>
+              <td>15.2 ± 0.1</td>
+              <td>5.3 ± 0.1</td>
+              <td>8.0 ± 0.2</td>
+              <td>2.8 ± 0.1</td>
+            </tr>
+            <tr>
+              <td>DAgRL</td>
+              <td>No</td>
+              <td>No</td>
+              <td>41.3 ± 0.3</td>
+              <td>21.2 ± 0.3</td>
+              <td>29.4 ± 0.3</td>
+              <td>14.4 ± 0.1</td>
+              <td>18.3 ± 0.3</td>
+              <td>7.9 ± 0.1</td>
+            </tr>
+            <tr>
+              <td>Uni-NaVid</td>
+              <td>No</td>
+              <td>No</td>
+              <td>41.3</td>
+              <td>21.1</td>
+              <td>43.9</td>
+              <td>21.8</td>
+              <td>39.5</td>
+              <td>19.8</td>
+            </tr>
+            <tr>
+              <td>VLFM</td>
+              <td>Yes</td>
+              <td>Yes</td>
+              <td>35.2</td>
+              <td>18.6</td>
+              <td>32.4</td>
+              <td>17.3</td>
+              <td>35.2</td>
+              <td>19.6</td>
+            </tr>
+            <tr>
+              <td>DAgRL+OD</td>
+              <td>Yes</td>
+              <td>Yes</td>
+              <td>38.5 ± 0.4</td>
+              <td>21.1 ± 0.4</td>
+              <td>39.0 ± 0.7</td>
+              <td>21.4 ± 0.5</td>
+              <td>37.1 ± 0.2</td>
+              <td>19.8 ± 0.3</td>
+            </tr>
+            <tr>
+              <td>TANGO</td>
+              <td>Yes</td>
+              <td>Yes</td>
+              <td>—</td>
+              <td>—</td>
+              <td>—</td>
+              <td>—</td>
+              <td>35.5 ± 0.3</td>
+              <td>19.5 ± 0.3</td>
+            </tr>
+            <tr>
+              <td>MTU3D</td>
+              <td>Yes</td>
+              <td>Yes</td>
+              <td>55.0</td>
+              <td>23.6</td>
+              <td>45.0</td>
+              <td>14.7</td>
+              <td>40.8</td>
+              <td>12.1</td>
+            </tr>
+            <tr>
+              <td><strong>OVSegDT</strong></td>
+              <td>No</td>
+              <td>No</td>
+              <td><strong>43.6 ± 0.4</strong></td>
+              <td><strong>20.1 ± 0.2</strong></td>
+              <td><strong>40.1 ± 0.4</strong></td>
+              <td><strong>17.9 ± 0.1</strong></td>
+              <td><strong>44.7 ± 0.4</strong></td>
+              <td><strong>20.6 ± 0.2</strong></td>
             </tr>
           </tbody>
         </table>
-        <div class="gallery" style="margin-top: 18px;">
-          <figure>
-            <img src="figures/lines_with_scatter_val_seen.png" alt="Val seen metrics" />
-            <figcaption>Val seen learning curves.</figcaption>
-          </figure>
-          <figure>
-            <img src="figures/lines_with_scatter_val_unseen.png" alt="Val unseen metrics" />
-            <figcaption>Val unseen learning curves.</figcaption>
-          </figure>
-          <figure>
-            <img
-              src="figures/lines_with_scatter_val_seen_synonyms.png"
-              alt="Val seen synonyms metrics"
-            />
-            <figcaption>Val seen synonyms learning curves.</figcaption>
-          </figure>
-        </div>
+        <p style="color:#697c93;margin-top:18px;font-size:0.97rem;">
+          <sup>[1]</sup> HM3D-OVON: A Dataset and Benchmark for Open-Vocabulary Object Goal Navigation.
+          <a href="https://arxiv.org/abs/2409.14296" target="_blank">arXiv:2409.14296 [cs.AI]</a>
+        </p>
       </section>
 
       <section class="section card">
@@ -262,18 +521,83 @@
           category and the combination of semantic reward plus segmentation loss preserve
           generalization to unseen categories.
         </p>
+        <p>
+          Calibration of category-specific confidence thresholds improves navigation quality,
+          and fine-tuning on predicted masks yields additional gains on unseen categories. The
+          combination of semantic reward and segmentation loss is critical to preserve generalization
+          after switching from ground-truth to predicted masks.
+        </p>
+        <div class="gallery" style="margin-top: 18px;">
+          <figure>
+            <img src="figures/lines_with_scatter_val_seen.png" alt="Val seen metrics" />
+            <figcaption>Val seen confidence-threshold curves.</figcaption>
+          </figure>
+          <figure>
+            <img src="figures/lines_with_scatter_val_unseen.png" alt="Val unseen metrics" />
+            <figcaption>Val unseen confidence-threshold curves.</figcaption>
+          </figure>
+          <figure>
+            <img
+              src="figures/lines_with_scatter_val_seen_synonyms.png"
+              alt="Val seen synonyms metrics"
+            />
+            <figcaption>Val seen synonyms confidence-threshold curves.</figcaption>
+          </figure>
+        </div>
       </section>
 
       <section class="section card">
-        <h2>Graphical Abstract</h2>
-        <figure>
-          <img src="figures/Graphical-Abstract.png" alt="OVSegDT graphical abstract" />
-        </figure>
+        <h2>Ablations and Analysis Highlights</h2>
+        <ul>
+          <li>
+            EALM outperforms hand-crafted DAgger-to-PPO switching strategies, improving success
+            rates while reducing collisions (a safety proxy).
+          </li>
+          <li>
+            Using the goal mask substantially boosts unseen-category performance; using text alone
+            results in near-zero success, highlighting the importance of mask guidance.
+          </li>
+          <li>
+            Entropy-threshold analysis shows a balanced window (H<sub>low</sub>=0.35,
+            H<sub>high</sub>=0.75) yields the best trade-off between success rate and collisions.
+          </li>
+        </ul>
+        <p>
+          The switching-strategy study shows that naive PPO stalls, while DAgger overfits and collides
+          frequently. EALM steadily improves success rate and reduces collisions by continuously
+          shifting from imitation to reinforcement as policy entropy falls. The entropy-threshold
+          study varies H<sub>low</sub> with H<sub>high</sub>=0.75 and shows that switching too early
+          harms success, while switching too late delays RL gains.
+        </p>
+        <div class="gallery" style="margin-top: 18px;">
+          <figure>
+            <img src="figures/ealm_ablation.png" alt="EALM switching strategy ablation" />
+            <figcaption>EALM vs. DAgger/PPO switching strategies (SR and collisions).</figcaption>
+          </figure>
+          <figure>
+            <img src="figures/threshold_ablation.png" alt="EALM entropy threshold ablation" />
+            <figcaption>Entropy-threshold ablation for H<sub>low</sub> (SR, PPO ratio, collisions).</figcaption>
+          </figure>
+        </div>
+      </section>
+
+      <section class="section card">
+        <h2>Training Details and Hyperparameters</h2>
+        <p>
+          Policies are trained for 200M steps with ground-truth segmentation and then fine-tuned
+          for 15M steps using predicted masks. Experiments run across 40 environments using Variable
+          Experience Rollout on two A100 GPUs.
+        </p>
+        <ul>
+          <li>Transformer: 4 layers, 8 attention heads, hidden size 512, context length 100.</li>
+          <li>Learning rate: 2.5e-4, PPO epochs: 1, mini-batches: 2.</li>
+          <li>Entropy coefficient: 0.01, value loss coefficient: 0.5, max grad norm: 0.2.</li>
+        </ul>
       </section>
 
       <footer>
         <div>Paper: <a href="https://arxiv.org/abs/2508.11479">OVSegDT on arXiv</a></div>
-        <div>Source figures: /root_home/ovsegdt_paper/figures</div>
+        <div>Code: <a href="https://github.com/CognitiveAISystems/OVSegDT">GitHub Repository</a></div>
       </footer>
     </div>
   </body>

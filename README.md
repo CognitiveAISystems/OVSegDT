@@ -1,6 +1,6 @@
 ## Project Page
 
-GitHub Pages overview: `docs/index.html` (deploy via Pages → `/docs`).
+GitHub Pages overview: https://cognitiveaisystems.github.io/OVSegDT/
 
 ## :hammer_and_wrench: Installation
 
