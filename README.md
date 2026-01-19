@@ -1,3 +1,7 @@
+## Project Page
+
+GitHub Pages overview: `docs/index.html` (deploy via Pages → `/docs`).
+
 ## :hammer_and_wrench: Installation
 
 ### Getting Started
@@ -100,18 +104,3 @@ python -m ovon.run --run-type train \
 --debug-datapath \
 --exp-config config/experiments/transformer_dagger_ppo_no_segm_loss.yaml
 ```
-
-
-python -m ovon.run --run-type train \
---debug-datapath \
---exp-config config/experiments/transformer_dagger_ppo_segm_loss_demo_zero.yaml
-
-
-cp /root_home/OVSegDT/modeling_llama.py /opt/conda/envs/habitat/lib/python3.10/site-packages/transformers/models/llama/modeling_llama.py
-
-
-source /opt/conda/etc/profile.d/conda.sh && conda activate habitat
-pip install numpy==1.24.4
-pip install gym==0.24.1
-pip install timm==1.0.15
-pip uninstall -y numpy pandas && pip install "numpy<2.0" "pandas<2.0"

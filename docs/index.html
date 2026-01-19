@@ -1,0 +1,327 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>OVSegDT — Open-Vocabulary Object Goal Navigation</title>
+    <meta
+      name="description"
+      content="OVSegDT is a lightweight transformer for open-vocabulary object-goal navigation using RGB input and a goal mask encoder."
+    />
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #0f1115;
+        --fg: #e7e9ee;
+        --muted: #b7bdc7;
+        --accent: #5aa9ff;
+        --card: #151923;
+        --border: #2a2f3a;
+      }
+      @media (prefers-color-scheme: light) {
+        :root {
+          --bg: #ffffff;
+          --fg: #0f1115;
+          --muted: #4c5563;
+          --accent: #0059d6;
+          --card: #f6f7fb;
+          --border: #e2e7f0;
+        }
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue",
+          Arial, "Noto Sans", "Liberation Sans", sans-serif;
+        background: var(--bg);
+        color: var(--fg);
+        line-height: 1.6;
+      }
+      a {
+        color: var(--accent);
+        text-decoration: none;
+      }
+      a:hover {
+        text-decoration: underline;
+      }
+      .container {
+        width: min(1100px, 92vw);
+        margin: 0 auto;
+        padding: 40px 0 64px;
+      }
+      header {
+        display: grid;
+        gap: 24px;
+        align-items: center;
+      }
+      .hero {
+        display: grid;
+        gap: 20px;
+        padding: 28px;
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        background: var(--card);
+      }
+      .hero h1 {
+        margin: 0;
+        font-size: clamp(28px, 4vw, 44px);
+        line-height: 1.1;
+      }
+      .hero p {
+        margin: 0;
+        color: var(--muted);
+        font-size: 1.05rem;
+      }
+      .cta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+      }
+      .cta a {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 16px;
+        border-radius: 999px;
+        border: 1px solid var(--border);
+        background: transparent;
+        color: var(--fg);
+      }
+      .cta a.primary {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: #fff;
+      }
+      .grid {
+        display: grid;
+        gap: 24px;
+        margin-top: 32px;
+      }
+      @media (min-width: 860px) {
+        .grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+      .card {
+        padding: 24px;
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        background: var(--card);
+      }
+      .card h2 {
+        margin-top: 0;
+        margin-bottom: 12px;
+      }
+      ul {
+        padding-left: 20px;
+        margin: 0;
+      }
+      figure {
+        margin: 0;
+      }
+      figure img {
+        width: 100%;
+        border-radius: 12px;
+        border: 1px solid var(--border);
+        background: #fff;
+      }
+      .pdf-embed {
+        width: 100%;
+        height: 420px;
+        border-radius: 12px;
+        border: 1px solid var(--border);
+        background: #fff;
+      }
+      figure figcaption {
+        color: var(--muted);
+        font-size: 0.95rem;
+        margin-top: 8px;
+      }
+      .gallery {
+        display: grid;
+        gap: 20px;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      }
+      .table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 12px;
+      }
+      .table th,
+      .table td {
+        padding: 8px 10px;
+        border-bottom: 1px solid var(--border);
+        text-align: left;
+      }
+      .table th {
+        color: var(--muted);
+        font-weight: 600;
+      }
+      footer {
+        margin-top: 48px;
+        color: var(--muted);
+        font-size: 0.95rem;
+      }
+      .pdf-link {
+        display: inline-block;
+        margin-top: 6px;
+        color: var(--muted);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <header class="hero">
+        <div>
+          <h1>OVSegDT</h1>
+          <p>
+            Segmenting Transformer for Open-Vocabulary Object Goal Navigation. A lightweight RGB-only
+            agent that generalizes to unseen object categories using a goal mask encoder and
+            entropy-adaptive training.
+          </p>
+        </div>
+        <div class="cta">
+          <a class="primary" href="https://arxiv.org/abs/2508.11479">Paper on arXiv</a>
+          <a href="../README.md">Repository README</a>
+          <a href="https://arxiv.org/abs/2508.11479">Full paper (arXiv)</a>
+        </div>
+      </header>
+
+      <section class="grid">
+        <div class="card">
+          <h2>Overview</h2>
+          <p>
+            Open-vocabulary Object Goal Navigation (OVON) requires an embodied agent to locate and
+            reach a target object specified by free-form language, including categories never seen
+            during training. OVSegDT achieves strong generalization with a compact 130M-parameter
+            transformer by integrating semantic segmentation cues directly into the policy.
+          </p>
+          <p>
+            The model fuses RGB, text goal, previous action, and a binary goal mask, then predicts
+            actions from the last 100 steps of observation history.
+          </p>
+        </div>
+        <div class="card">
+          <h2>Key Contributions</h2>
+          <ul>
+            <li>Goal mask encoder for precise spatial grounding of the target object.</li>
+            <li>
+              Entropy-Adaptive Loss Modulation (EALM) that blends imitation and PPO without manual
+              phase switches.
+            </li>
+            <li>
+              Auxiliary segmentation loss + semantic reward to improve adaptation to predicted
+              masks.
+            </li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="grid">
+        <div class="card">
+          <h2>Method at a Glance</h2>
+          <figure>
+            <object class="pdf-embed" data="figures/OVSegDT_scheme.pdf" type="application/pdf">
+              <a href="figures/OVSegDT_scheme.pdf">Open OVSegDT architecture figure (PDF).</a>
+            </object>
+            <figcaption>Architecture: RGB + text + action + mask → transformer → action + value.</figcaption>
+          </figure>
+          <a class="pdf-link" href="figures/OVSegDT_scheme.pdf">Open figure (PDF)</a>
+        </div>
+        <div class="card">
+          <h2>Qualitative Behavior</h2>
+          <figure>
+            <object
+              class="pdf-embed"
+              data="figures/OVSegDT-Qualitative-Examples.pdf"
+              type="application/pdf"
+            >
+              <a href="figures/OVSegDT-Qualitative-Examples.pdf"
+                >Open qualitative navigation examples (PDF).</a
+              >
+            </object>
+            <figcaption>Goal masks guide efficient exploration and goal reaching.</figcaption>
+          </figure>
+          <a class="pdf-link" href="figures/OVSegDT-Qualitative-Examples.pdf">Open figure (PDF)</a>
+        </div>
+      </section>
+
+      <section class="card" style="margin-top: 32px;">
+        <h2>Results</h2>
+        <p>
+          OVSegDT reaches state-of-the-art RGB-only performance on HM3D-OVON while matching seen and
+          unseen category performance.
+        </p>
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Split</th>
+              <th>Success Rate (SR)</th>
+              <th>SPL</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Val Seen</td>
+              <td>43.6%</td>
+              <td>20.1%</td>
+            </tr>
+            <tr>
+              <td>Val Unseen</td>
+              <td>44.7%</td>
+              <td>20.6%</td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="gallery" style="margin-top: 18px;">
+          <figure>
+            <img src="figures/lines_with_scatter_val_seen.png" alt="Val seen metrics" />
+            <figcaption>Val seen learning curves.</figcaption>
+          </figure>
+          <figure>
+            <img src="figures/lines_with_scatter_val_unseen.png" alt="Val unseen metrics" />
+            <figcaption>Val unseen learning curves.</figcaption>
+          </figure>
+          <figure>
+            <img
+              src="figures/lines_with_scatter_val_seen_synonyms.png"
+              alt="Val seen synonyms metrics"
+            />
+            <figcaption>Val seen synonyms learning curves.</figcaption>
+          </figure>
+        </div>
+      </section>
+
+      <section class="card" style="margin-top: 32px;">
+        <h2>Adaptation to Predicted Segmentation</h2>
+        <p>
+          OVSegDT is trained with ground-truth masks for fast convergence, then fine-tuned with
+          predicted masks from an open-vocabulary segmenter (YOLOE). Confidence calibration per
+          category and the combination of semantic reward plus segmentation loss preserve
+          generalization to unseen categories.
+        </p>
+      </section>
+
+      <section class="card" style="margin-top: 32px;">
+        <h2>Graphical Abstract</h2>
+        <figure>
+          <object
+            class="pdf-embed"
+            data="figures/OVSegDT-Graphical-Abstract.pdf"
+            type="application/pdf"
+          >
+            <a href="figures/OVSegDT-Graphical-Abstract.pdf">Open graphical abstract (PDF).</a>
+          </object>
+        </figure>
+        <a class="pdf-link" href="figures/OVSegDT-Graphical-Abstract.pdf">Open figure (PDF)</a>
+      </section>
+
+      <footer>
+        <div>Paper: <a href="https://arxiv.org/abs/2508.11479">OVSegDT on arXiv</a></div>
+        <div>Source figures: /root_home/ovsegdt_paper/figures</div>
+      </footer>
+    </div>
+  </body>
+</html>
