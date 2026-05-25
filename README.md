@@ -70,7 +70,7 @@ The tar.gz file should be decompressed in `data/datasets/ovon/`, such that the `
 ## :weight_lifting: Downloading pre-trained weights
 We provide pre-trained checkpoint on the Anonymous Google Drive:
 
-- `ckpt.5.pth`: https://drive.google.com/file/d/1Y26g4xNVFW5UMKmg0IyS1JS-BgBLcoyC/view?usp=sharing
+- `ckpt.5.pth`: [https://huggingface.co/wingrune/OVSegDT](https://huggingface.co/wingrune/OVSegDT)
 
 ## :arrow_forward: Evaluation within Habitat
 
